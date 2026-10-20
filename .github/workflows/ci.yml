@@ -1,0 +1,107 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+env:
+  DJANGO_SETTINGS_MODULE: config.settings
+  DATABASE_URL: sqlite:///db.sqlite3
+  REDIS_URL: redis://localhost:6379/0
+  SECRET_KEY: ci-secret-key
+  DEBUG: "True"
+  ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+  FRONTEND_URL: http://localhost:5173
+  STRIPE_SECRET_KEY: sk_test_ci
+  STRIPE_WEBHOOK_SECRET: whsec_ci
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend deps
+        run: |
+          pip install -r backend/requirements.txt
+          pip install flake8 black
+      - name: Run flake8
+        run: python -m flake8 backend --max-line-length=100 --ignore=E203,W503 --exclude=migrations
+      - name: Run black check
+        run: python -m black --check backend
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend deps
+        run: pip install -r backend/requirements.txt
+      - name: Run migrations and tests
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+          python -m pytest backend/tests/ -v
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./backend/coverage.xml
+        if: always()
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [test, frontend]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          load: true
+          tags: multiii/backend:ci
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          load: true
+          tags: multiii/frontend:ci
+      - name: Compose config check
+        run: docker compose config --quiet

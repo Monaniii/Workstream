@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env
+*.db
+db.sqlite3
+
+# Django
+*.log
+staticfiles/
+media/
+
+# Node
+node_modules/
+npm-debug.log*
+frontend/dist/
+frontend/build/
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Docker
+.dockerignore

@@ -1,0 +1,68 @@
+flowchart TD
+    subgraph Client["Client Layer"]
+        UI[React Frontend<br/>Vite • Tailwind • @dnd-kit<br/>http://localhost:5173]
+    end
+
+    subgraph API["API Layer (Django + DRF, port 8000)"]
+        GW[Gunicorn / ASGI]
+        MW[TenantMiddleware<br/>X-Tenant-Slug header]
+        AUTH[Token Authentication]
+        RBAC[Role-Based Permissions<br/>Admin / Manager / Member / Viewer]
+        API[REST API ViewSets<br/>drf-spectacular OpenAPI]
+    end
+
+    subgraph Apps["Django Apps (shared schema, workspace_id)"]
+        TEN[tenants<br/>User, Workspace, WorkspaceMember]
+        PRO[projects<br/>Project, Board, Sprint]
+        ISS[issues<br/>Issue, IssueStatus,<br/>Comment, Attachment, AuditLog]
+        BIL[billing<br/>SubscriptionPlan,<br/>Subscription, Invoice]
+        WEB[webhooks<br/>Endpoint, Delivery]
+        NOT[notifications<br/>Notification]
+    end
+
+    subgraph Data["Data & External Services"]
+        DB[(PostgreSQL<br/>port 5432)]
+        REDIS[(Redis<br/>port 6379<br/>Celery broker/result)]
+        STRIPE[(Stripe<br/>Test Mode<br/>Checkout • Portal • Webhooks)]
+    end
+
+    subgraph Jobs["Background Jobs (Celery)"]
+        CEL[Celery Worker + Beat]
+        WH[deliver_webhook_task<br/>retry w/ backoff]
+        NT[send_notification_task]
+        RP[send_report_task<br/>CSV reports]
+    end
+
+    UI -->|HTTPS /api| GW
+    GW --> MW
+    MW --> AUTH
+    AUTH --> RBAC
+    RBAC --> API
+    API --> TEN
+    API --> PRO
+    API --> ISS
+    API --> BIL
+    API --> WEB
+    API --> NOT
+
+    TEN -.-> DB
+    PRO -.-> DB
+    ISS -.-> DB
+    BIL -.-> DB
+    WEB -.-> DB
+    NOT -.-> DB
+
+    CEL --> REDIS
+    CEL --> DB
+    CEL -.-> WH
+    CEL -.-> NT
+    CEL -.-> RP
+
+    BIL -.->|webhook| STRIPE
+    WEB -->|HTTP POST| CEL
+
+    style Client fill:#e1f5fe,stroke:#01579b
+    style API fill:#f3e5f5,stroke:#4a148c
+    style Apps fill:#e8f5e9,stroke:#1b5e20
+    style Data fill:#fff3e0,stroke:#e65100
+    style Jobs fill:#fce4ec,stroke:#880e4f

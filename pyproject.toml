@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+django_settings_module = "config.settings"
+python_files = ["test_*.py", "*_tests.py"]
+testpaths = ["backend"]
+addopts = "-q"

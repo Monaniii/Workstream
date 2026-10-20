@@ -1,0 +1,38 @@
+from django.db import models
+from django.conf import settings
+from tenants.models import Workspace
+
+
+class NotificationType(models.TextChoices):
+    ISSUE_ASSIGNED = "issue.assigned", "Issue Assigned"
+    ISSUE_COMMENTED = "issue.commented", "Issue Commented"
+    ISSUE_TRANSITIONED = "issue.transitioned", "Issue Transitioned"
+    ISSUE_MOVED = "issue.moved", "Issue Moved"
+    SUBSCRIPTION_ACTIVE = "subscription.active", "Subscription Active"
+    SUBSCRIPTION_PAST_DUE = "subscription.past_due", "Subscription Past Due"
+    REPORT_READY = "report.ready", "Report Ready"
+
+
+class Notification(models.Model):
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name="notifications"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
+    )
+    type = models.CharField(max_length=50, choices=NotificationType.choices)
+    title = models.CharField(max_length=200)
+    message = models.TextField(blank=True, default="")
+    read = models.BooleanField(default=False)
+    link = models.URLField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["workspace", "user", "-created_at"]),
+            models.Index(fields=["user", "read"]),
+        ]
+
+    def __str__(self):
+        return f"{self.type} - {self.user.email}"
