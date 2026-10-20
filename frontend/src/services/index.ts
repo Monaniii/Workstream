@@ -97,6 +97,18 @@ axiosInstance.interceptors.request.use((config) => {
   return config
 })
 
+// Unwrap DRF paginated responses ({results, count, ...}) to plain arrays
+axiosInstance.interceptors.response.use(
+  (response) => {
+    const data = response.data
+    if (data && typeof data === "object" && Array.isArray(data.results)) {
+      response.data = data.results
+    }
+    return response
+  },
+  (error) => Promise.reject(error)
+)
+
 export const workspacesApi = {
   list: () => axiosInstance.get<Workspace[]>("/tenants/workspaces/").then((r) => r.data),
   create: (data: { name: string; slug?: string; plan?: string }) =>

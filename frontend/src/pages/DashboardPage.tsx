@@ -6,10 +6,62 @@ import toast from "react-hot-toast"
 
 export default function DashboardPage() {
   const { user, activeWorkspace, setActiveWorkspace, workspaces, logout } = useAuth()
-  const { projects, loading, createProject } = useProjects()
+  const { projects, loading, error, createProject } = useProjects()
   const [newProject, setNewProject] = useState({ name: "", key: "" })
+  const [selectedSlug, setSelectedSlug] = useState("")
 
-  if (!activeWorkspace) return <div className="p-8 text-center">Select a workspace to continue.</div>
+  if (workspaces.length === 0) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center text-center">
+        <h2 className="text-xl font-bold mb-2">No workspaces</h2>
+        <p className="text-gray-500">You don't belong to any workspaces yet.</p>
+      </div>
+    )
+  }
+
+  if (!activeWorkspace) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center">
+        <div className="max-w-md w-full p-8 bg-white rounded-xl border border-gray-200 shadow-sm">
+          <h2 className="text-xl font-bold mb-6">Select a workspace</h2>
+          <select
+            value={selectedSlug}
+            onChange={(e) => setSelectedSlug(e.target.value)}
+            className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+          >
+            <option value="" disabled>
+              Choose a workspace...
+            </option>
+            {workspaces.map((ws) => (
+              <option key={ws.id} value={ws.slug}>{ws.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setActiveWorkspace(selectedSlug || null)}
+            className="w-full bg-indigo-600 text-white py-2 rounded font-medium hover:bg-indigo-700 disabled:opacity-60"
+            disabled={!selectedSlug}
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center text-center">
+        <h2 className="text-xl font-bold mb-2">Error loading projects</h2>
+        <p className="text-red-500 mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()

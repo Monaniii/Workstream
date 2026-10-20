@@ -43,8 +43,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (token) {
       fetch(`${base}/auth/me/`, { headers: { Authorization: `Token ${token}` } })
-        .then((r) => r.json())
-        .then((data: User) => setUser(data))
+        .then((r) => {
+          if (!r.ok) throw new Error("Failed to load user")
+          return r.json()
+        })
+        .then(async (data: User) => {
+          setUser(data)
+          await fetchWorkspaces().catch((err) => {
+            console.error("fetchWorkspaces failed", err)
+          })
+        })
+        .catch((err) => {
+          console.error("Auth load failed", err)
+          setUser(null)
+          setToken(null)
+          localStorage.removeItem("token")
+        })
         .finally(() => setIsLoading(false))
     } else {
       setIsLoading(false)
@@ -56,11 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await axios.get(`${base}/tenants/workspaces/`, {
       headers: { Authorization: `Token ${token}` },
     })
-    setWorkspaces(res.data)
+    const data = Array.isArray(res.data) ? res.data : res.data?.results ?? []
+    setWorkspaces(data)
     const slug = localStorage.getItem("workspaceSlug")
     if (slug) {
-      const ws = res.data.find((w: Workspace) => w.slug === slug)
-      if (ws) setActiveWorkspaceState(ws)
+      const ws = data.find((w: Workspace) => w.slug === slug)
+      if (ws) {
+        setActiveWorkspaceState(ws)
+      } else {
+        localStorage.removeItem("workspaceSlug")
+      }
     }
   }
 

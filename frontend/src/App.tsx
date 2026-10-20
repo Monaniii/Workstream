@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
+import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "./context/AuthContext"
 import Navbar from "./components/Navbar"
 import LoginPage from "./pages/LoginPage"
@@ -9,14 +9,14 @@ import BoardPage from "./pages/BoardPage"
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   const location = useLocation()
-  if (isLoading) return null
+  if (isLoading) return <div className="p-8 text-center">Loading...</div>
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
   return <>{children}</>
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <>
       <Navbar />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -38,6 +38,6 @@ export default function App() {
           }
         />
       </Routes>
-    </BrowserRouter>
+    </>
   )
 }
