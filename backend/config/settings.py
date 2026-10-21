@@ -14,6 +14,7 @@ env = environ.Env(
     STRIPE_WEBHOOK_SECRET=(str, ""),
     FRONTEND_URL=(str, "http://localhost:5173"),
     EMAIL_BACKEND=(str, "django.core.mail.backends.console.EmailBackend"),
+    DEFAULT_FROM_EMAIL=(str, "noreply@multiii.local"),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
@@ -138,6 +139,20 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
+CELERY_BEAT_SCHEDULE = {
+    "send-due-date-reminders": {
+        "task": "notifications.tasks.send_due_date_reminders",
+        "schedule": 3600.0,  # every hour
+    },
+    "send-sprint-reminders": {
+        "task": "notifications.tasks.send_sprint_reminders",
+        "schedule": 86400.0,  # every day
+    },
+    "cleanup-expired-invitations": {
+        "task": "notifications.tasks.cleanup_expired_invitations",
+        "schedule": 86400.0,  # every day
+    },
+}
 
 # Stripe
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")

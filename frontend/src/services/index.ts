@@ -33,6 +33,19 @@ export interface Board {
   columns: any[]
 }
 
+export interface Sprint {
+  id: number
+  workspace: number
+  board: number
+  name: string
+  goal: string
+  status: string
+  start_date: string | null
+  end_date: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface IssueStatus {
   id: number
   workspace: number
@@ -135,9 +148,19 @@ export const projectsApi = {
 
 export const boardsApi = {
   list: (params?: Record<string, string>) =>
-    axiosInstance.get<Board[]>("/boards/", { params }).then((r) => r.data),
+    axiosInstance.get<Board[]>("/projects/boards/", { params }).then((r) => r.data),
   create: (data: Partial<Board>) =>
-    axiosInstance.post<Board>("/boards/", data).then((r) => r.data),
+    axiosInstance.post<Board>("/projects/boards/", data).then((r) => r.data),
+}
+
+export const sprintsApi = {
+  list: (params?: Record<string, string>) =>
+    axiosInstance.get<Sprint[]>("/projects/sprints/", { params }).then((r) => r.data),
+  create: (data: Partial<Sprint>) =>
+    axiosInstance.post<Sprint>("/projects/sprints/", data).then((r) => r.data),
+  update: (id: number, data: Partial<Sprint>) =>
+    axiosInstance.patch<Sprint>(`/projects/sprints/${id}/`, data).then((r) => r.data),
+  remove: (id: number) => axiosInstance.delete(`/projects/sprints/${id}/`),
 }
 
 export const statusesApi = {

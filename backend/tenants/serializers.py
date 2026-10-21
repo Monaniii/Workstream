@@ -73,7 +73,7 @@ class WorkspaceMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkspaceMember
         fields = ("id", "user", "user_email", "role", "joined_at")
-        read_only_fields = ("id", "user", "joined_at")
+        read_only_fields = ("id", "joined_at")
 
 
 class WorkspaceMemberRoleSerializer(serializers.ModelSerializer):

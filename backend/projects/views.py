@@ -7,6 +7,7 @@ from tenants.permissions import (
     TenantAccessPermission,
     IsWorkspaceMember,
 )
+from tenants.entitlements import check_project_limit, check_board_limit
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -28,6 +29,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         tenant = getattr(self.request, "tenant", None)
+        check_project_limit(tenant)
         serializer.save(workspace=tenant, created_by=self.request.user)
 
 
@@ -50,6 +52,7 @@ class BoardViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         tenant = getattr(self.request, "tenant", None)
+        check_board_limit(tenant)
         serializer.save(workspace=tenant)
 
 

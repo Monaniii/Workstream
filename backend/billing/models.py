@@ -75,3 +75,20 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"Invoice {self.stripe_invoice_id} - {self.amount}"
+
+
+class ProcessedStripeEvent(models.Model):
+    """Idempotency record for Stripe webhook events to prevent duplicate processing."""
+
+    stripe_event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=100)
+    processed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-processed_at"]
+        indexes = [
+            models.Index(fields=["stripe_event_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.stripe_event_id} ({self.event_type})"

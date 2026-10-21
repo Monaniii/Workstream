@@ -9,45 +9,48 @@ A Jira-like product where each company gets its own isolated workspace with boar
 |   React Frontend| <--------------> |   Django / DRF (Gunicorn)   |
 |  (Vite, port 5173) |               |   (port 8000)                |
 +----------------+      API          +----------------------------+
-                                                |
-                                                | X-Tenant-Slug header
-                                                v
-                                      +----------------------------+
-                                      |  TenantMiddleware (slug)   |
-                                      +----------------------------+
-                                                |
-         +------------------+  +------------------+  +------------------+
-         |   Tenants        |  |   Projects       |  |   Issues         |
-         | (Workspace,      |  | (Project, Board, |  | (Issue, Comment, |
-         |  Membership)     |  |  Sprint)         |  |  Attachment,     |
-         +------------------+  |   AuditLog)      |  |  AuditLog)       |
-         +------------------+  +------------------+  +------------------+
-                                                |
-                  +-----------------------------+
-                  |          Billing            |
-                  | (SubscriptionPlan,          |
-                  |  Subscription, Invoice)     |
-                  +-----------------------------+
-                                                |
-                                      +----------------------------+
-                                      |   Webhooks                 |
-                                      | (Endpoint, Delivery)       |
-                                      +----------------------------+
-                                                |
-                                      +----------------------------+
-                                      |   Notifications (Celery)   |
-                                      +----------------------------+
-                                                |
-                                    +------------+------------+
-                                    |            |            |
-                              PostgreSQL      Redis (Celery)   Stripe (test mode)
-                              (port 5432)     (port 6379)      (Billing webhooks)
+                                                 |
+                                                 | X-Tenant-Slug header
+                                                 v
+                                       +----------------------------+
+                                       |  TenantMiddleware (slug)   |
+                                       +----------------------------+
+                                                 |
+          +------------------+  +------------------+  +------------------+
+          |   Tenants        |  |   Projects       |  |   Issues         |
+          | (Workspace,      |  | (Project, Board, |  | (Issue, Comment, |
+          |  Membership,     |  |  Sprint)         |  |  Attachment,     |
+          |  Invitation)     |  +------------------+  |  AuditLog)       |
+          +------------------+                       +------------------+
+                                                 |
+                                       +----------------------------+
+                                       |          Billing           |
+                                       | (SubscriptionPlan,         |
+                                       |  Subscription, Invoice,    |
+                                       |  ProcessedStripeEvent)     |
+                                       +----------------------------+
+                                                 |
+                                       +----------------------------+
+                                       |   Webhooks                 |
+                                       | (Endpoint, Delivery)       |
+                                       +----------------------------+
+                                                 |
+                                       +----------------------------+
+                                       |   Notifications (Celery)   |
+                                       +----------------------------+
+                                                 |
+                                     +------------+------------+
+                                     |            |            |
+                               PostgreSQL      Redis (Celery)   Stripe (test mode)
+                               (port 5432)     (port 6379)      (Billing webhooks)
 ```
 
 ### Tenant isolation
-Shared-schema, `tenant_id` (`workspace_id`) on every entity. Requests resolve the active workspace via the `X-Tenant-Slug` header (`TenantMiddleware`). All querysets are filtered to `workspace = request.tenant`, so one workspace can never read or write another workspace's data.
+
+Shared-schema, `workspace_id` on every entity. Requests resolve the active workspace via the `X-Tenant-Slug` header (`TenantMiddleware`). All querysets are filtered to `workspace = request.tenant`, so one workspace can never read or write another workspace's data.
 
 ### Roles
+
 | Role | Can |
 |------|-----|
 | Admin | Full workspace control: manage members, plans, billing, delete workspace |
@@ -55,12 +58,23 @@ Shared-schema, `tenant_id` (`workspace_id`) on every entity. Requests resolve th
 | Member | Create/update issues, comment, attach files, drag-and-drop on Kanban |
 | Viewer | Read-only access |
 
+### Billing entitlements
+
+Plan limits are enforced server-side:
+
+| Plan | Max Users | Max Projects | Max Boards |
+|------|-----------|--------------|------------|
+| Free | 5 | 3 | 3 |
+| Starter | 15 | 10 | 10 |
+| Business | 50 | 50 | 50 |
+| Enterprise | Unlimited | Unlimited | Unlimited |
+
 ## Tech Stack
 
 - **Backend**: Django 6, Django REST Framework, drf-spectacular (OpenAPI)
 - **Database**: PostgreSQL (SQLite for local/CI tests)
-- **Async**: Celery + Redis (webhook delivery, notifications, reports)
-- **Payments**: Stripe Billing (test mode) — Checkout, Customer Portal, webhooks
+- **Async**: Celery + Redis (notifications, reminders, cleanup)
+- **Payments**: Stripe Billing (test mode) — Checkout, Customer Portal, webhooks with idempotency
 - **Frontend**: React 18, Vite, Tailwind CSS, `@dnd-kit` drag-and-drop Kanban
 - **DevOps**: Docker, Docker Compose, GitHub Actions
 
@@ -127,53 +141,53 @@ Auth (`Token` authentication, header `Authorization: Token <token>`):
 
 Projects & Boards:
 
-| Method | Endpoint |
-|--------|----------|
-| GET/POST | `/api/projects/` |
-| GET/PUT/DELETE | `/api/projects/{id}/` |
-| GET/POST | `/api/boards/` |
-| GET/PUT/DELETE | `/api/boards/{id}/` |
-| GET/POST | `/api/sprints/` |
-| GET/PUT/DELETE | `/api/sprints/{id}/` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST | `/api/projects/` | List/create projects (tenant-scoped) |
+| GET/PUT/DELETE | `/api/projects/{id}/` | Project detail |
+| GET/POST | `/api/projects/boards/` | List/create boards |
+| GET/PUT/DELETE | `/api/projects/boards/{id}/` | Board detail |
+| GET/POST | `/api/projects/sprints/` | List/create sprints |
+| GET/PUT/DELETE | `/api/projects/sprints/{id}/` | Sprint detail |
 
 Issues:
 
-| Method | Endpoint |
-|--------|----------|
-| GET/POST | `/api/issues/` |
-| GET/PUT/DELETE | `/api/issues/{id}/` |
-| POST | `/api/issues/{id}/move/` — drag-and-drop (`column_id`, `position`) |
-| POST | `/api/issues/{id}/transition/` — change status (`status_id`) |
-| GET/POST | `/api/issues/comments/?issue={id}` |
-| GET/POST | `/api/issues/attachments/?issue={id}` |
-| GET | `/api/issues/audit-logs/` |
-| GET | `/api/issues/statuses/?workspace={id}` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST | `/api/issues/` | List/create issues |
+| GET/PUT/DELETE | `/api/issues/{id}/` | Issue detail |
+| POST | `/api/issues/{id}/move/` | Drag-and-drop (`column_id`, `position`) |
+| POST | `/api/issues/{id}/transition/` | Change status (`status_id`) |
+| GET/POST | `/api/issues/comments/?issue={id}` | Issue comments |
+| GET/POST | `/api/issues/attachments/?issue={id}` | Issue attachments |
+| GET | `/api/issues/audit-logs/` | Audit logs |
+| GET | `/api/issues/statuses/?workspace={id}` | Workflow statuses |
 
 Billing:
 
-| Method | Endpoint |
-|--------|----------|
-| GET | `/api/billing/plans/` |
-| GET | `/api/billing/subscription/` |
-| POST | `/api/billing/subscription/checkout/` (`price_id`) |
-| POST | `/api/billing/subscription/portal/` |
-| GET | `/api/billing/invoices/` |
-| POST | `/api/billing/webhook/` (Stripe) |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/billing/plans/` | Subscription plans |
+| GET | `/api/billing/subscription/` | Current subscription |
+| POST | `/api/billing/subscription/checkout/` | Start Stripe Checkout (`price_id`) |
+| POST | `/api/billing/subscription/portal/` | Customer Portal |
+| GET | `/api/billing/invoices/` | Invoice history |
+| POST | `/api/billing/webhook/` | Stripe webhook |
 
 Webhooks:
 
-| Method | Endpoint |
-|--------|----------|
-| GET/POST | `/api/webhooks/endpoints/` |
-| GET | `/api/webhooks/deliveries/?endpoint={id}` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST | `/api/webhooks/endpoints/` | Outgoing webhook endpoints |
+| GET | `/api/webhooks/deliveries/?endpoint={id}` | Delivery history |
 
 Notifications:
 
-| Method | Endpoint |
-|--------|----------|
-| GET | `/api/notifications/notifications/` |
-| POST | `/api/notifications/notifications/{id}/read/` |
-| POST | `/api/notifications/notifications/read-all/` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notifications/notifications/` | User notifications |
+| POST | `/api/notifications/notifications/{id}/read/` | Mark as read |
+| POST | `/api/notifications/notifications/read-all/` | Mark all as read |
 
 OpenAPI docs: `http://localhost:8000/api/docs/` (Swagger) or `/api/redoc/`.
 
@@ -182,24 +196,35 @@ OpenAPI docs: `http://localhost:8000/api/docs/` (Swagger) or `/api/redoc/`.
 ```bash
 cd backend
 pip install -r requirements.txt
-python manage.py migrate --run-syncdb   # or use pytest-django test DB
-$env:DJANGO_SETTINGS_MODULE="config.settings"   # (PowerShell)
+python manage.py migrate --noinput
+
+# PostgreSQL for tests
 export DJANGO_SETTINGS_MODULE=config.settings   # (bash)
-python -m pytest backend/tests/ -v
+$env:DJANGO_SETTINGS_MODULE="config.settings"   # (PowerShell)
+
+python -m pytest tests/ -v
 ```
 
-All 8 backend tests pass: registration/login, workspace RBAC, tenant isolation, project CRUD scoped to workspace, issue creation with auto-generated keys (`PROJ-1`), and drag-and-drop issue moves.
+All 23 backend tests pass, including:
+- Registration/login
+- Workspace RBAC
+- **Cross-tenant isolation** (Company A cannot access Company B's data)
+- **Billing entitlement enforcement** (plan limits)
+- **Stripe webhook idempotency** (no duplicate processing)
+- **Invitation creation and acceptance**
+- Project CRUD scoped to workspace
+- Issue creation with auto-generated keys (`PROJ-1`)
 
 ## Lint & Format
 
 ```bash
 # backend
 python -m flake8 backend --max-line-length=100 --ignore=E203,W503 --exclude=migrations
-python -m black backend
+python -m black --check backend
 
 # frontend
 cd frontend
-npm run lint   # eslint
+npm run lint
 npm run build  # vite build + type-check
 ```
 
@@ -207,10 +232,11 @@ npm run build  # vite build + type-check
 
 `.github/workflows/ci.yml` runs on every push/PR:
 
-1. **lint** — flake8 + black
-2. **test** — Django migrations + pytest (Redis service)
-3. **frontend** — `npm ci` + `npm run build`
-4. **docker** (main/master only) — build backend & frontend images, validate `docker compose config`
+1. **lint** — flake8 + black (backend), ESLint (frontend)
+2. **test** — Django migrations + pytest with PostgreSQL + Redis services
+3. **frontend** — `npm ci` + `npm run lint` + `npm run build`
+4. **migrations** — `makemigrations --check --dry-run` (no drift)
+5. **docker** (main/master only) — build backend & frontend images, validate `docker compose config`
 
 ## Database / Data Model
 
@@ -219,6 +245,7 @@ Core models (shared schema, `workspace_id` tenant isolation):
 - `User` — email-based authentication
 - `Workspace` — tenant (company) with owner + plan
 - `WorkspaceMember` — user ↔ workspace with role (admin/manager/member/viewer)
+- `Invitation` — workspace email invitations with UUID tokens
 - `Project` — belongs to a workspace, has a `key` (e.g. `PROJ`)
 - `Board` — Kanban board with configurable columns (JSON)
 - `Sprint` — planning/active/completed/archived
@@ -227,19 +254,53 @@ Core models (shared schema, `workspace_id` tenant isolation):
 - `IssueComment` / `IssueAttachment`
 - `AuditLog` — who did what, when, on which target
 - `SubscriptionPlan`, `Subscription`, `Invoice` — Stripe-backed billing
+- `ProcessedStripeEvent` — webhook idempotency tracking
 - `WebhookEndpoint`, `WebhookDelivery` — outgoing webhooks with retry
 
 ## Seed Data
 
-Optional seed with Faker:
+Optional seed script creates 27 users, 10 workspaces, 19 projects, 20 boards, 20 sprints, 36 issues, and billing data across all modules:
 
 ```bash
 cd backend
-pip install faker factory-boy
-# see backend/tests/test_api.py for example factory usage
+pip install -r requirements.txt
+python manage.py migrate
+python seed_demo.py
 ```
+
+Demo credentials:
+
+| Email | Password | Role |
+|-------|----------|------|
+| eliezer@example.com | EliezerPass123! | Superuser, Admin all workspaces |
+| sarah@acme.com | DemoPass123! | Admin, Acme Corp |
+| alex@techstart.io | DemoPass123! | Admin, TechStart Labs |
+| leo@globex.com | DemoPass123! | Admin, Globex Industries |
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DEBUG` | Debug mode | `False` |
+| `SECRET_KEY` | Django secret key | `dev-secret-key-change-me` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://multiii:multiii@localhost:5432/multiii` |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379/0` |
+| `ALLOWED_HOSTS` | Allowed hostnames | `` |
+| `FRONTEND_URL` | Frontend origin for CORS/CSRF | `http://localhost:5173` |
+| `STRIPE_SECRET_KEY` | Stripe secret key (test mode) | `` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | `` |
+| `EMAIL_BACKEND` | Django email backend | console backend |
+| `DEFAULT_FROM_EMAIL` | From email address | `noreply@multiii.local` |
+
+## Migrations
+
+All migrations are additive and safe to apply:
+
+- `tenants.0002_invitation` — Adds Invitation model
+- `billing.0003_processedstripeevent` — Adds webhook idempotency tracking
+
+Run `python manage.py migrate` to apply.
 
 ## License
 
 MIT
-# Multi-Tenant-SaaS-Project-Management-Platform

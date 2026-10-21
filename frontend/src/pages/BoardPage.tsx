@@ -65,7 +65,7 @@ function IssueCard({ issue, columnId, onMove, onOpen }: any) {
   )
 }
 
-function ColumnCard({ column, issues, boardId, onMove, onOpen }: any) {
+function ColumnCard({ column, issues, onMove, onOpen }: any) {
   const items = [...issues].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
   return (
     <div className="flex flex-col min-w-[260px]">
@@ -97,7 +97,7 @@ function ColumnCard({ column, issues, boardId, onMove, onOpen }: any) {
 }
 
 export default function BoardPage() {
-  const { boardId } = useParams<{ boardId: string }>()
+  const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { activeWorkspace } = useAuth()
   const [columns, setColumns] = useState<any[]>([])
@@ -109,24 +109,29 @@ export default function BoardPage() {
   const [newIssue, setNewIssue] = useState({ title: "", description: "", issue_type: "task", priority: "medium" })
 
   useEffect(() => {
-    if (!boardId || !activeWorkspace) return
+    if (!projectId || !activeWorkspace) return
     setLoading(true)
-    boardsApi.list({ workspace: String(activeWorkspace.id) })
+    boardsApi.list({ workspace: String(activeWorkspace.id), project: projectId })
       .then((boards) => {
-        const b = boards.find((b) => b.id === Number(boardId))
-        if (!b) { navigate("/"); return }
+        if (boards.length === 0) {
+          navigate(`/app/projects/${projectId}`)
+          return
+        }
+        const b = boards[0]
         setBoard(b)
         setColumns(b.columns || [])
         return issuesApi.list({ project: String(b.project) })
       })
       .then((data) => {
-        setIssues(data)
+        if (data) {
+          setIssues(data)
+        }
         setLoading(false)
       })
       .catch(() => setLoading(false))
 
     statusesApi.list({ workspace: String(activeWorkspace.id) }).then(setStatuses)
-  }, [boardId, activeWorkspace])
+  }, [projectId, activeWorkspace])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
@@ -205,7 +210,6 @@ export default function BoardPage() {
               key={column.id}
               column={column}
               issues={column.issues}
-              boardId={boardId}
               onMove={handleDragEnd}
               onOpen={handleIssueClick}
             />

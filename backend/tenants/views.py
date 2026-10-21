@@ -19,6 +19,7 @@ from .permissions import (
     IsWorkspaceAdmin,
     IsWorkspaceManager,
 )
+from .entitlements import check_member_limit
 
 
 def _current_tenant(request):
@@ -101,6 +102,7 @@ class WorkspaceMemberListView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         tenant = _current_tenant(self.request)
+        check_member_limit(tenant)
         serializer.save(workspace=tenant)
 
 
