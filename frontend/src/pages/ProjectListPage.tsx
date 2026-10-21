@@ -10,7 +10,6 @@ export default function ProjectListPage() {
   const { projects, loading, error, createProject } = useProjects()
   const [newProject, setNewProject] = useState({ name: "", key: "" })
   const navigate = useNavigate()
-
   if (!activeWorkspace) {
     return (
       <div className="flex h-screen flex-col items-center justify-center text-center">

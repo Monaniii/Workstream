@@ -24,7 +24,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="w-full max-w-md space-y-6 p-8 bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="flex items-center gap-2 text-indigo-600">
-          <BotIcon className="w-6 h-6" /> <span className="text-xl font-bold">MultiTii</span>
+          <BotIcon className="w-6 h-6" /> <span className="text-xl font-bold">Workstream</span>
         </div>
         <h2 className="text-2xl font-bold">Create account</h2>
         {error && <div className="text-red-500 text-sm">{error}</div>}

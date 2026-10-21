@@ -4,9 +4,16 @@ import { Shell } from "./layout/Shell"
 import LoginPage from "./pages/LoginPage"
 import RegisterPage from "./pages/RegisterPage"
 import DashboardPage from "./pages/DashboardPage"
-import BoardPage from "./pages/BoardPage"
 import ProjectListPage from "./pages/ProjectListPage"
 import ProjectDetailPage from "./pages/ProjectDetailPage"
+import BoardPage from "./pages/BoardPage"
+import ReportsPage from "./pages/ReportsPage"
+import ActivityPage from "./pages/ActivityPage"
+import CalendarPage from "./pages/CalendarPage"
+import NotificationsPage from "./pages/NotificationsPage"
+import SettingsGeneralPage from "./pages/SettingsGeneralPage"
+import SettingsMembersPage from "./pages/SettingsMembersPage"
+import BillingPage from "./pages/BillingPage"
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -34,6 +41,13 @@ export default function App() {
         <Route path="projects/new" element={<ProjectListPage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="projects/:projectId/board" element={<BoardPage />} />
+        <Route path="reports" element={<ReportsPage />} />
+        <Route path="activity" element={<ActivityPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="settings/general" element={<SettingsGeneralPage />} />
+        <Route path="settings/members" element={<SettingsMembersPage />} />
+        <Route path="billing" element={<BillingPage />} />
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />
     </Routes>

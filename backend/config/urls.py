@@ -24,4 +24,5 @@ urlpatterns = [
     path("api/billing/", include("billing.urls")),
     path("api/webhooks/", include("webhooks.urls")),
     path("api/notifications/", include("notifications.urls")),
+    path("api/reports/", include("reports.urls")),
 ]

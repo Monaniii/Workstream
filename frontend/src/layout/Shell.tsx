@@ -1,23 +1,22 @@
 import { useState } from "react"
-import { Link, useLocation, useNavigate, useParams, Outlet } from "react-router-dom"
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import {
   Menu,
   X,
   Layout,
   Briefcase,
-  Calendar,
   Search,
   Bell,
   User,
-  Settings,
   LogOut,
   ChevronLeft,
   BarChart3,
-  ClipboardList,
+  Settings,
   CreditCard,
+  ClipboardList,
+  Calendar,
 } from "lucide-react"
-import toast from "react-hot-toast"
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { user, activeWorkspace, workspaces, logout, setActiveWorkspace } = useAuth()
@@ -25,7 +24,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { workspaceSlug } = useParams<{ workspaceSlug?: string }>()
 
   const handleLogout = () => {
     logout()
@@ -43,18 +41,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const isActive = (path: string) => location.pathname.startsWith(path)
 
   const navItems = [
-    { name: "Overview", href: "/app/overview", icon: Layout },
+    { name: "Dashboard", href: "/app", icon: Layout },
     { name: "Projects", href: "/app/projects", icon: Briefcase },
-    { name: "Board", href: "/app/board", icon: Layout },
-    { name: "Backlog", href: "/app/backlog", icon: ClipboardList },
-    { name: "Calendar", href: "/app/calendar", icon: Calendar },
     { name: "Reports", href: "/app/reports", icon: BarChart3 },
+    { name: "Team", href: "/app/settings/members", icon: User },
     { name: "Activity", href: "/app/activity", icon: ClipboardList },
+    { name: "Calendar", href: "/app/calendar", icon: Calendar },
     { name: "Notifications", href: "/app/notifications", icon: Bell },
   ]
 
   const settingsItems = [
-    { name: "General", href: "/app/settings/general", icon: Settings },
+    { name: "Workspace", href: "/app/settings/general", icon: Settings },
     { name: "Members", href: "/app/settings/members", icon: User },
     { name: "Billing", href: "/app/billing", icon: CreditCard },
   ]
@@ -78,7 +75,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <Layout className="w-6 h-6 text-indigo-600" />
-            <span className="font-bold text-lg tracking-tight">MultiTii</span>
+            <span className="font-bold text-lg tracking-tight">Workstream</span>
           </div>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -166,7 +163,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </button>
         <div className="flex-1 flex items-center gap-2">
           <Layout className="w-5 h-5 text-indigo-600" />
-          <span className="font-bold text-sm truncate">MultiTii</span>
+          <span className="font-bold text-sm truncate">Workstream</span>
         </div>
       </div>
 
@@ -192,16 +189,18 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   className="w-full pl-10 pr-4 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <button
+              <Link
+                to="/app/projects"
                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
               >
-                <Layout className="w-4 h-4 mr-2" /> New project
-              </button>
+                <Briefcase className="w-4 h-4 mr-2" /> New project
+              </Link>
             </div>
 
             <div className="flex items-center gap-4">
               <button
                 className="p-2 text-gray-500 hover:text-indigo-600 relative"
+                onClick={() => navigate("/app/notifications")}
               >
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />

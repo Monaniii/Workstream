@@ -1,6 +1,6 @@
-# MultiTii — Multi-Tenant SaaS Project Management Platform
+# Workstream — Enterprise Work Management Platform
 
-A Jira-like product where each company gets its own isolated workspace with boards, sprints, and billing. Built with **Django REST Framework**, **React**, **PostgreSQL**, **Celery**, **Stripe Billing**, **Docker**, and **GitHub Actions**.
+A premium project management platform where each company gets its own isolated workspace with boards, sprints, and billing. Built with **Django REST Framework**, **React**, **PostgreSQL**, **Celery**, **Stripe Billing**, **Docker**, and **GitHub Actions**.
 
 ## Architecture
 

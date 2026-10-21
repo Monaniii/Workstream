@@ -8,7 +8,7 @@ from datetime import timedelta
 
 from tenants.models import Workspace, WorkspaceMember, MembershipRole, Invitation
 from projects.models import Project, Board, Sprint, SprintStatus
-from issues.models import IssueStatus, Issue
+from issues.models import IssueStatus, Issue, AuditLog
 from billing.models import SubscriptionPlan, Subscription, Invoice, ProcessedStripeEvent
 
 User = get_user_model()
@@ -436,3 +436,232 @@ class TestExistingFunctionality:
         )
         assert resp.status_code == 201, resp.data
         assert resp.data["key"].startswith("PRJ-")
+
+
+@pytest.mark.django_db
+class TestReports:
+    """Reports & Analytics endpoint tests."""
+
+    def test_overview_endpoint(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Overview returns KPIs scoped to the requesting workspace."""
+        project = Project.objects.create(
+            workspace=workspace_a, name="Test Project", key="TP"
+        )
+        status_todo = IssueStatus.objects.create(
+            workspace=workspace_a, name="To Do", key="todo", is_initial=True
+        )
+        status_done = IssueStatus.objects.create(
+            workspace=workspace_a, name="Done", key="done", is_final=True
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="TP-1",
+            summary="Open task",
+            priority="high",
+            issue_type="bug",
+            assignee=admin_user_a,
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_done,
+            key="TP-2",
+            summary="Completed task",
+            priority="low",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+
+        resp = client_admin_a.get("/api/reports/overview/")
+        assert resp.status_code == 200, resp.data
+        assert resp.data["workspace"]["id"] == workspace_a.id
+        assert resp.data["kpis"]["total_projects"] >= 1
+        assert resp.data["kpis"]["total_tasks"] >= 2
+        assert resp.data["kpis"]["open_tasks"] >= 1
+        assert resp.data["kpis"]["completed_tasks"] >= 1
+        assert "status_distribution" in resp.data
+
+    def test_overview_tenant_isolation(
+        self, client_admin_a, client_admin_b, workspace_a, workspace_b
+    ):
+        """Company A cannot see Company B's report data."""
+        Project.objects.create(
+            workspace=workspace_b, name="Secret Project", key="SEC"
+        )
+        resp = client_admin_a.get("/api/reports/overview/")
+        assert resp.status_code == 200
+        assert resp.data["workspace"]["id"] == workspace_a.id
+
+    def test_projects_endpoint(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Projects endpoint returns per-project task breakdown."""
+        project = Project.objects.create(
+            workspace=workspace_a, name="Alpha", key="ALP"
+        )
+        status_done = IssueStatus.objects.create(
+            workspace=workspace_a, name="Done", key="done", is_final=True
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_done,
+            key="ALP-1",
+            summary="Done task",
+            priority="medium",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+
+        resp = client_admin_a.get("/api/reports/projects/")
+        assert resp.status_code == 200, resp.data
+        assert len(resp.data["projects"]) >= 1
+        proj = resp.data["projects"][0]
+        assert proj["total_tasks"] >= 1
+        assert proj["completed_tasks"] >= 1
+        assert "completion_rate" in proj
+
+    def test_tasks_endpoint(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Tasks endpoint returns distribution by status, priority, assignee."""
+        project = Project.objects.create(
+            workspace=workspace_a, name="Beta", key="BET"
+        )
+        status_todo = IssueStatus.objects.create(
+            workspace=workspace_a, name="To Do", key="todo", is_initial=True
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="BET-1",
+            summary="Analytic task",
+            priority="high",
+            issue_type="bug",
+            assignee=admin_user_a,
+        )
+
+        resp = client_admin_a.get("/api/reports/tasks/")
+        assert resp.status_code == 200, resp.data
+        assert resp.data["total"] >= 1
+        assert "by_status" in resp.data
+        assert "by_priority" in resp.data
+        assert "by_project" in resp.data
+        assert "by_assignee" in resp.data
+        assert "daily_creation" in resp.data
+
+    def test_team_endpoint(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Team endpoint returns per-member workload."""
+        project = Project.objects.create(
+            workspace=workspace_a, name="Gamma", key="GAM"
+        )
+        status_todo = IssueStatus.objects.create(
+            workspace=workspace_a, name="To Do", key="todo", is_initial=True
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="GAM-1",
+            summary="Team task",
+            priority="medium",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+
+        resp = client_admin_a.get("/api/reports/team/")
+        assert resp.status_code == 200, resp.data
+        assert resp.data["total_members"] >= 1
+        member = resp.data["members"][0]
+        assert "total_tasks" in member
+        assert "open_tasks" in member
+        assert "completed_tasks" in member
+        assert "completion_rate" in member
+
+    def test_activity_endpoint(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Activity endpoint returns audit log events."""
+        AuditLog.objects.create(
+            workspace=workspace_a,
+            actor=admin_user_a,
+            action="create",
+            target_type="project",
+            target_id="1",
+            changes={},
+        )
+
+        resp = client_admin_a.get("/api/reports/activity/")
+        assert resp.status_code == 200, resp.data
+        assert resp.data["total_events"] >= 1
+        assert "by_action" in resp.data
+        assert "by_target" in resp.data
+        assert "recent_events" in resp.data
+
+    def test_export_csv_endpoint(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """CSV export returns a downloadable CSV file."""
+        project = Project.objects.create(
+            workspace=workspace_a, name="Export Project", key="EXP"
+        )
+        status_todo = IssueStatus.objects.create(
+            workspace=workspace_a, name="To Do", key="todo", is_initial=True
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="EXP-1",
+            summary="Export task",
+            priority="medium",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+
+        resp = client_admin_a.post(
+            "/api/reports/export/csv/",
+            {"report_type": "tasks"},
+            format="json",
+        )
+        assert resp.status_code == 200, resp.data
+        assert resp["Content-Type"].startswith("text/csv")
+        assert "attachment" in resp.get("Content-Disposition", "")
+
+    def test_export_csv_invalid_report_type(
+        self, client_admin_a
+    ):
+        """Invalid report type returns 400."""
+        resp = client_admin_a.post(
+            "/api/reports/export/csv/",
+            {"report_type": "nonexistent"},
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_reports_require_tenant(
+        self, api_client, admin_user_a
+    ):
+        """Reports with a nonexistent tenant slug return 403."""
+        token, _ = Token.objects.get_or_create(user=admin_user_a)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+            HTTP_X_TENANT_SLUG="nonexistent-workspace",
+        )
+        resp = api_client.get("/api/reports/overview/")
+        assert resp.status_code == 403
+
+    def test_reports_require_authentication(
+        self, api_client
+    ):
+        """Reports endpoints require authentication."""
+        resp = api_client.get("/api/reports/overview/")
+        assert resp.status_code == 401
+

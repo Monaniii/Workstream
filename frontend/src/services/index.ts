@@ -126,6 +126,8 @@ export const workspacesApi = {
   list: () => axiosInstance.get<Workspace[]>("/tenants/workspaces/").then((r) => r.data),
   create: (data: { name: string; slug?: string; plan?: string }) =>
     axiosInstance.post<Workspace>("/tenants/workspaces/", data).then((r) => r.data),
+  update: (id: number, data: { name?: string; slug?: string; plan?: string }) =>
+    axiosInstance.patch<Workspace>(`/tenants/workspaces/${id}/`, data).then((r) => r.data),
   members: (id: number) =>
     axiosInstance.get<Membership[]>(`/tenants/workspaces/${id}/members/`).then((r) => r.data),
   addMember: (id: number, data: { user: number; role: string }) =>
@@ -207,6 +209,25 @@ export const attachmentsApi = {
 export const auditApi = {
   list: (params?: Record<string, string>) =>
     axiosInstance.get<any[]>("/issues/audit-logs/", { params }).then((r) => r.data),
+}
+
+export const reportsApi = {
+  overview: (params?: Record<string, string>) =>
+    axiosInstance.get<any>("/reports/overview/", { params }).then((r) => r.data),
+  projects: (params?: Record<string, string>) =>
+    axiosInstance.get<any>("/reports/projects/", { params }).then((r) => r.data),
+  tasks: (params?: Record<string, string>) =>
+    axiosInstance.get<any>("/reports/tasks/", { params }).then((r) => r.data),
+  team: (params?: Record<string, string>) =>
+    axiosInstance.get<any>("/reports/team/", { params }).then((r) => r.data),
+  activity: (params?: Record<string, string>) =>
+    axiosInstance.get<any>("/reports/activity/", { params }).then((r) => r.data),
+  exportCsv: (data: { report_type: string; start_date?: string; end_date?: string }) =>
+    axiosInstance
+      .post<Blob>("/reports/export/csv/", data, {
+        responseType: "blob",
+      })
+      .then((r) => r.data),
 }
 
 export const notificationsApi = {

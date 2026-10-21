@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "billing",
     "webhooks",
     "notifications",
+    "reports",
 ]
 
 MIDDLEWARE = [
@@ -126,7 +127,7 @@ REST_FRAMEWORK = {
 
 # Spectacular (OpenAPI)
 SPECTACULAR_SETTINGS = {
-    "TITLE": "MultiTiii API",
+    "TITLE": "Workstream API",
     "DESCRIPTION": "Multi-tenant SaaS Project Management Platform",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
