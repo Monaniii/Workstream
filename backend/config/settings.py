@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "webhooks",
     "notifications",
     "reports",
+    "audit",
 ]
 
 MIDDLEWARE = [
@@ -55,6 +56,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "tenants.middleware.TenantMiddleware",
+    "audit.middleware.AuditMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -106,6 +108,20 @@ MEDIA_ROOT = BASE_DIR / "media"
 # CORS
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [env("FRONTEND_URL")] if not DEBUG else []
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "accept-language",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-tenant-slug",
+    "authorization",
+    "x-request-id",
+]
 
 # CSRF trusted origins for frontend dev server
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"] if DEBUG else [env("FRONTEND_URL")]
@@ -161,3 +177,6 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 
 # Tenant
 TENANT_HEADER = "X-Tenant-Slug"
+
+# Audit logging
+AUDIT_RETENTION_DAYS = 365

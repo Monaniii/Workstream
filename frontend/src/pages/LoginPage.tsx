@@ -1,7 +1,7 @@
 import { useAuth } from "../context/AuthContext"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { LogIn, Mail, Lock, UserPlus, Bot } from "lucide-react"
+import { LogIn, Mail, Lock } from "lucide-react"
 
 export default function LoginPage() {
   const { login } = useAuth()
@@ -22,39 +22,101 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="w-full max-w-md space-y-6 p-8 bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="flex items-center gap-2 text-indigo-600">
-          <Bot className="w-6 h-6" /> <span className="text-xl font-bold">Workstream</span>
+    <div className="min-h-screen w-full bg-[#FAFAFC]">
+      <div className="flex flex-col lg:flex-row h-screen">
+        {/* Left: brand panel */}
+        <div className="lg:w-1/2 h-auto md:h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-12 flex flex-col items-center justify-center text-white relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <pattern id="waves" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M0 10 Q 5 0 10 10 T 20 10" stroke="currentColor" strokeWidth="1" fill="none" />
+                </pattern>
+              </defs>
+              <rect width="100" height="100" fill="url(#waves)" />
+            </svg>
+          </div>
+          <div className="relative z-10 flex items-center gap-2 mb-10">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-blue-700 flex items-center justify-center text-white text-2xl shadow-2xl shadow-blue-500/40">
+              W
+            </div>
+            <div className="flex flex-col">
+              <span className="text-3xl font-extrabold tracking-tight italic">Workstream</span>
+              <span className="text-xs font-medium text-blue-200 uppercase tracking-wider mt-0.5">Plan. Collaborate. Get It Done.</span>
+            </div>
+          </div>
+          <h2 className="text-4xl font-bold mb-6 leading-tight">
+            Sign in to your<br />
+            workspace
+          </h2>
+          <p className="text-blue-100 text-sm max-w-md mb-10 leading-relaxed text-center">
+            Welcome back. Enter your credentials to access your projects and
+            team activity.
+          </p>
+          <div className="w-full flex items-center gap-3 text-blue-300 text-sm">
+            <Lock className="w-4 h-4" />
+            <span>Secure login</span>
+          </div>
         </div>
-        <h2 className="text-2xl font-bold">Sign in</h2>
-        {error && <div className="text-red-500 text-sm">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Work email</label>
-            <input
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={email} onChange={(e) => setEmail(e.target.value)} type="email" required
-            />
+
+        {/* Right: login form */}
+        <div className="lg:w-1/2 flex items-center justify-center p-8 bg-[#FAFAFC]">
+          <div className="w-full max-w-md space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-400 to-blue-700 flex items-center justify-center text-white text-sm">
+                W
+              </div>
+              <span className="text-xl font-bold tracking-tight text-slate-900">Workstream</span>
+            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Work email
+                </label>
+                <input
+                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white transition"
+                  value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="you@company.com"
+                />
+              </div>
+              <div className="relative">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Password
+                </label>
+                <input
+                  className="w-full border border-slate-300 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white transition pr-10"
+                  value={password} onChange={(e) => setPassword(e.target.value)} type="password" required
+                />
+                <Lock className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                  Remember me
+                </label>
+                <Link to="/" className="text-sm text-blue-600 hover:underline font-medium">
+                  Forgot password?
+                </Link>
+              </div>
+              <button
+                className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm shadow-blue-500/20"
+                disabled={!email || !password}
+              >
+                <LogIn className="w-4 h-4 mr-2" /> Sign in
+              </button>
+            </form>
+            <p className="text-center text-sm text-slate-500">
+              Don't have an account?{" "}
+              <Link to="/register" className="text-blue-600 hover:underline font-medium">
+                Create one
+              </Link>
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              value={password} onChange={(e) => setPassword(e.target.value)} type="password" required
-            />
-          </div>
-          <button
-            className="w-full bg-indigo-600 text-white py-2 rounded font-medium hover:bg-indigo-700 disabled:opacity-60"
-            disabled={!email || !password}
-          >
-            <LogIn className="w-4 h-4 mr-2" /> Sign in
-          </button>
-        </form>
-        <p className="text-center text-sm text-gray-600">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-indigo-600 hover:underline">Create one</Link>
-        </p>
+        </div>
       </div>
     </div>
   )

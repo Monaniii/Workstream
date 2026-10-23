@@ -41,11 +41,12 @@ services:
       REDIS_URL: redis://redis:6379/0
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      PORT: ${PORT:-8080}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
     ports:
-      - "8000:8000"
+      - "${PORT}:${PORT}"
     volumes:
       - ./backend:/app
       - media_volume:/app/media
@@ -53,7 +54,7 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput --clear &&
-             gunicorn --bind 0.0.0.0:8000 config.wsgi:application"
+             gunicorn --bind 0.0.0.0:${PORT} config.wsgi:application"
 
   worker:
     build: ./backend

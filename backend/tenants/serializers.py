@@ -6,8 +6,16 @@ from .models import User, Workspace, WorkspaceMember
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ("id", "email", "username", "avatar_url", "date_joined")
-        read_only_fields = ("id", "date_joined")
+        fields = (
+            "id",
+            "email",
+            "username",
+            "avatar_url",
+            "is_staff",
+            "is_superuser",
+            "date_joined",
+        )
+        read_only_fields = ("id", "date_joined", "is_staff", "is_superuser")
 
 
 class RegisterSerializer(serializers.ModelSerializer):

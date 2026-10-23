@@ -6,6 +6,8 @@ export interface User {
   email: string
   username: string
   avatar_url: string
+  is_staff: boolean
+  is_superuser: boolean
 }
 
 export interface Workspace {

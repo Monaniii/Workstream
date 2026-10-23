@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from tenants.models import Workspace
+from projects.models import Project
 
 
 class NotificationType(models.TextChoices):
@@ -13,9 +14,26 @@ class NotificationType(models.TextChoices):
     REPORT_READY = "report.ready", "Report Ready"
 
 
+class NotificationScope(models.TextChoices):
+    WORKSPACE = "workspace", "Workspace"
+    PROJECT = "project", "Project"
+
+
 class Notification(models.Model):
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name="notifications"
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
+    scope = models.CharField(
+        max_length=20,
+        choices=NotificationScope.choices,
+        default=NotificationScope.WORKSPACE,
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
@@ -32,6 +50,8 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=["workspace", "user", "-created_at"]),
             models.Index(fields=["user", "read"]),
+            models.Index(fields=["project", "-created_at"]),
+            models.Index(fields=["scope", "workspace", "-created_at"]),
         ]
 
     def __str__(self):

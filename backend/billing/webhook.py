@@ -7,6 +7,8 @@ from django.conf import settings
 from django.db import transaction
 from .models import Subscription, Invoice, ProcessedStripeEvent
 from tenants.models import Workspace
+from audit.services import AuditService
+from audit.models import AuditEvent
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -66,6 +68,19 @@ class StripeWebhookView(View):
                 subscription.save(
                     update_fields=["stripe_subscription_id", "status"]
                 )
+                AuditService.log_security_event(
+                    actor=None,
+                    workspace=workspace,
+                    action="subscription_change",
+                    module="billing",
+                    resource_type="subscription",
+                    resource_id=subscription.id,
+                    resource_name=workspace.slug,
+                    description=f"Subscription activated via Stripe checkout for {workspace.slug}",
+                    outcome="success",
+                    actor_type=AuditEvent.ActorType.SYSTEM,
+                    metadata={"event_type": "checkout.session.completed"},
+                )
             except (Workspace.DoesNotExist, Subscription.DoesNotExist):
                 pass
 
@@ -75,6 +90,7 @@ class StripeWebhookView(View):
             subscription = Subscription.objects.get(
                 stripe_subscription_id=sub.get("id")
             )
+            old_status = subscription.status
             subscription.status = sub.get("status", subscription.status)
             subscription.current_period_start = sub.get(
                 "current_period_start", subscription.current_period_start
@@ -93,6 +109,26 @@ class StripeWebhookView(View):
                     "cancel_at_period_end",
                 ]
             )
+            workspace = subscription.workspace
+            AuditService.log_security_event(
+                actor=None,
+                workspace=workspace,
+                action="subscription_change",
+                module="billing",
+                resource_type="subscription",
+                resource_id=subscription.id,
+                resource_name=workspace.slug,
+                description=(
+                    f"Subscription updated via Stripe for {workspace.slug}: "
+                    f"{old_status} -> {subscription.status}"
+                ),
+                outcome="success",
+                actor_type=AuditEvent.ActorType.SYSTEM,
+                changed_fields={
+                    "status": {"from": old_status, "to": subscription.status}
+                },
+                metadata={"event_type": "customer.subscription.updated"},
+            )
         except Subscription.DoesNotExist:
             pass
 
@@ -102,8 +138,22 @@ class StripeWebhookView(View):
             subscription = Subscription.objects.get(
                 stripe_subscription_id=sub.get("id")
             )
+            workspace = subscription.workspace
             subscription.status = "canceled"
             subscription.save(update_fields=["status"])
+            AuditService.log_security_event(
+                actor=None,
+                workspace=workspace,
+                action="subscription_change",
+                module="billing",
+                resource_type="subscription",
+                resource_id=subscription.id,
+                resource_name=workspace.slug,
+                description=f"Subscription canceled via Stripe for {workspace.slug}",
+                outcome="success",
+                actor_type=AuditEvent.ActorType.SYSTEM,
+                metadata={"event_type": "customer.subscription.deleted"},
+            )
         except Subscription.DoesNotExist:
             pass
 
@@ -113,6 +163,7 @@ class StripeWebhookView(View):
             subscription = Subscription.objects.get(
                 stripe_subscription_id=inv.get("subscription")
             )
+            workspace = subscription.workspace
             Invoice.objects.update_or_create(
                 stripe_invoice_id=inv.get("id"),
                 defaults={
@@ -126,6 +177,23 @@ class StripeWebhookView(View):
                         if inv.get("status_transitions")
                         else None
                     ),
+                },
+            )
+            AuditService.log_security_event(
+                actor=None,
+                workspace=workspace,
+                action="invoice_paid",
+                module="billing",
+                resource_type="invoice",
+                resource_id=inv.get("id", ""),
+                resource_name=workspace.slug,
+                description=f"Invoice paid via Stripe for {workspace.slug}",
+                outcome="success",
+                actor_type=AuditEvent.ActorType.SYSTEM,
+                metadata={
+                    "event_type": "invoice.payment_succeeded",
+                    "amount": inv.get("amount_paid", 0),
+                    "currency": inv.get("currency", "usd"),
                 },
             )
         except Subscription.DoesNotExist:

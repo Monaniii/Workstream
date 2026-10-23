@@ -206,10 +206,7 @@ export const attachmentsApi = {
   },
 }
 
-export const auditApi = {
-  list: (params?: Record<string, string>) =>
-    axiosInstance.get<any[]>("/issues/audit-logs/", { params }).then((r) => r.data),
-}
+
 
 export const reportsApi = {
   overview: (params?: Record<string, string>) =>
@@ -255,6 +252,80 @@ export const webhooksApi = {
     axiosInstance.post("/webhooks/endpoints/", data).then((r) => r.data),
   deliveries: (endpointId: number) =>
     axiosInstance.get<any[]>("/webhooks/deliveries/", { params: { endpoint: endpointId } }).then((r) => r.data),
+}
+
+// Raw axios instance (no paginated-response unwrapping) for the audit API,
+// which returns DRF-style paginated objects {count, next, previous, results}.
+const axiosRaw = axios.create({ baseURL: API_BASE })
+
+axiosRaw.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token")
+  if (token) config.headers.Authorization = `Token ${token}`
+  const slug = localStorage.getItem("workspaceSlug")
+  if (slug) config.headers["X-Tenant-Slug"] = slug
+  return config
+})
+
+export interface AuditEvent {
+  id: string
+  timestamp: string
+  created_at: string
+  actor: number | null
+  actor_type: string
+  actor_name: string
+  actor_email: string
+  workspace: number | null
+  workspace_slug: string
+  workspace_name: string
+  action: string
+  action_display: string
+  module: string
+  module_display: string
+  resource_type: string
+  resource_id: string
+  resource_name: string
+  description: string
+  outcome: string
+  outcome_display: string
+  changed_fields: Record<string, any>
+  request_id: string
+  http_method: string
+  route: string
+  ip_address: string | null
+  user_agent: string
+  session_key: string
+  metadata: Record<string, any>
+}
+
+export interface AuditStats {
+  total_events: number
+  successful_actions: number
+  failed_actions: number
+  denied_actions: number
+  error_actions: number
+  security_events: number
+}
+
+export interface AuditPage {
+  count: number
+  next: string | null
+  previous: string | null
+  results: AuditEvent[]
+}
+
+export const auditApi = {
+  list: (params?: Record<string, string>) =>
+    axiosRaw
+      .get<AuditPage>("/audit/events/", { params })
+      .then((r) => r.data),
+  get: (id: string) =>
+    axiosRaw.get<AuditEvent>(`/audit/events/${id}/`).then((r) => r.data),
+  stats: () =>
+    axiosRaw.get<AuditStats>("/audit/events/stats/").then((r) => r.data),
+  exportCsv: (params?: Record<string, string>) =>
+    axiosRaw
+      .get<Blob>("/audit/events/export/csv/", { params, responseType: "blob" })
+      .then((r) => r.data),
 }
 
 export default axiosInstance

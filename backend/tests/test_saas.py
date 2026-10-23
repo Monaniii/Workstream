@@ -665,3 +665,198 @@ class TestReports:
         resp = api_client.get("/api/reports/overview/")
         assert resp.status_code == 401
 
+
+@pytest.mark.django_db
+class TestProjectFeatures:
+    """Enhanced project module tests."""
+
+    def test_create_project_with_status_and_priority(
+        self, client_admin_a, workspace_a
+    ):
+        """Project can be created with status and priority."""
+        resp = client_admin_a.post(
+            "/api/projects/",
+            {
+                "name": "New Project",
+                "key": "NEW",
+                "status": "active",
+                "priority": "high",
+                "objectives": "Build something great",
+            },
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        assert resp.data["status"] == "active"
+        assert resp.data["priority"] == "high"
+        assert resp.data["objectives"] == "Build something great"
+        assert resp.data["owner_email"] == "admin-a@company-a.com"
+
+    def test_project_defaults_to_planned_and_normal(
+        self, client_admin_a, workspace_a
+    ):
+        """New project defaults to Planned status and Normal priority."""
+        resp = client_admin_a.post(
+            "/api/projects/",
+            {"name": "Default Project", "key": "DEF"},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        assert resp.data["status"] == "planned"
+        assert resp.data["priority"] == "normal"
+
+    def test_project_owner_defaults_to_creator(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Project owner defaults to the creating user."""
+        resp = client_admin_a.post(
+            "/api/projects/",
+            {"name": "Ownered Project", "key": "OWN"},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        assert resp.data["owner_email"] == admin_user_a.email
+
+    def test_project_date_validation(
+        self, client_admin_a, workspace_a
+    ):
+        """Target date cannot be earlier than start date."""
+        resp = client_admin_a.post(
+            "/api/projects/",
+            {
+                "name": "Bad Dates",
+                "key": "BDAT",
+                "start_date": "2026-12-01",
+                "target_date": "2026-11-01",
+            },
+            format="json",
+        )
+        assert resp.status_code == 400, resp.data
+
+    def test_project_health_and_progress(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        """Project health and progress are calculated from tasks."""
+        project = Project.objects.create(
+            workspace=workspace_a, name="Health Proj", key="HP"
+        )
+        status_todo = IssueStatus.objects.create(
+            workspace=workspace_a, name="To Do", key="todo", is_initial=True
+        )
+        status_done = IssueStatus.objects.create(
+            workspace=workspace_a, name="Done", key="done", is_final=True
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="HP-1",
+            summary="Open task",
+            priority="medium",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_done,
+            key="HP-2",
+            summary="Done task",
+            priority="low",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+
+        # Refresh from DB to get computed properties
+        project.refresh_from_db()
+        assert project.progress_percentage == 50.0
+        assert project.health == "at_risk"
+
+    def test_project_archive_and_unarchive(
+        self, client_admin_a, workspace_a
+    ):
+        """Project can be archived and unarchived."""
+        resp = client_admin_a.post(
+            "/api/projects/",
+            {"name": "Archive Me", "key": "ARC"},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        project_id = resp.data["id"]
+
+        # Archive
+        resp = client_admin_a.post(f"/api/projects/{project_id}/archive/")
+        assert resp.status_code == 200, resp.data
+
+        # Should not appear in default list
+        resp = client_admin_a.get("/api/projects/")
+        assert resp.status_code == 200
+        assert not any(p["id"] == project_id for p in resp.data["results"])
+
+        # Should appear with include_archived=true
+        resp = client_admin_a.get("/api/projects/?include_archived=true")
+        assert resp.status_code == 200
+        assert any(p["id"] == project_id for p in resp.data["results"])
+
+        # Unarchive
+        resp = client_admin_a.post(f"/api/projects/{project_id}/unarchive/")
+        assert resp.status_code == 200, resp.data
+
+        # Should appear again
+        resp = client_admin_a.get("/api/projects/")
+        assert resp.status_code == 200
+        assert any(p["id"] == project_id for p in resp.data["results"])
+
+    def test_project_cannot_archive_twice(
+        self, client_admin_a, workspace_a
+    ):
+        """Archiving an already-archived project returns 400."""
+        resp = client_admin_a.post(
+            "/api/projects/",
+            {"name": "Double Archive", "key": "DARC"},
+            format="json",
+        )
+        assert resp.status_code == 201, resp.data
+        project_id = resp.data["id"]
+
+        client_admin_a.post(f"/api/projects/{project_id}/archive/")
+        resp = client_admin_a.post(f"/api/projects/{project_id}/archive/")
+        assert resp.status_code == 400, resp.data
+
+    def test_project_filter_by_status(
+        self, client_admin_a, workspace_a
+    ):
+        """Projects can be filtered by status."""
+        client_admin_a.post(
+            "/api/projects/",
+            {"name": "Active Project", "key": "ACT", "status": "active"},
+            format="json",
+        )
+        client_admin_a.post(
+            "/api/projects/",
+            {"name": "Planned Project", "key": "PLN", "status": "planned"},
+            format="json",
+        )
+
+        resp = client_admin_a.get("/api/projects/?status=active")
+        assert resp.status_code == 200
+        assert all(p["status"] == "active" for p in resp.data["results"])
+
+    def test_project_filter_by_priority(
+        self, client_admin_a, workspace_a
+    ):
+        """Projects can be filtered by priority."""
+        client_admin_a.post(
+            "/api/projects/",
+            {"name": "High Priority", "key": "HIP", "priority": "high"},
+            format="json",
+        )
+        client_admin_a.post(
+            "/api/projects/",
+            {"name": "Low Priority", "key": "LOP", "priority": "low"},
+            format="json",
+        )
+
+        resp = client_admin_a.get("/api/projects/?priority=high")
+        assert resp.status_code == 200
+        assert all(p["priority"] == "high" for p in resp.data["results"])
+

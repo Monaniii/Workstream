@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from tenants.permissions import TenantAccessPermission, IsWorkspaceAdmin
 from .models import SubscriptionPlan, Subscription, Invoice
 from .serializers import (
@@ -12,6 +13,7 @@ from .serializers import (
     SubscriptionSerializer,
     InvoiceSerializer,
 )
+from audit.services import AuditService
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -69,8 +71,43 @@ class SubscriptionViewSet(viewsets.ViewSet):
                     cancel_url=f"{frontend_url}/billing/cancel",
                     metadata={"workspace_id": str(tenant.id)},
                 )
+            ctx = getattr(request, "audit_context", {}) or {}
+            AuditService.log_event(
+                actor=request.user,
+                workspace=tenant,
+                action="subscription_change",
+                module="billing",
+                resource_type="subscription",
+                resource_id="",
+                resource_name=tenant.slug if tenant else "",
+                description=f"Subscription checkout initiated for {tenant.slug if tenant else 'workspace'}",
+                outcome="success",
+                request_id=ctx.get("request_id", ""),
+                http_method=request.method,
+                route=ctx.get("route", ""),
+                ip_address=ctx.get("ip_address"),
+                user_agent=ctx.get("user_agent", ""),
+                metadata={"price_id": price_id, "session_id": session.id},
+            )
             return Response({"checkout_url": session.url, "session_id": session.id})
         except stripe.error.StripeError as exc:
+            ctx = getattr(request, "audit_context", {}) or {}
+            AuditService.log_security_event(
+                actor=request.user,
+                workspace=tenant,
+                action="subscription_change",
+                module="billing",
+                resource_type="subscription",
+                resource_id="",
+                description=f"Subscription checkout failed for {tenant.slug if tenant else 'workspace'}",
+                outcome="failure",
+                request_id=ctx.get("request_id", ""),
+                http_method=request.method,
+                route=ctx.get("route", ""),
+                ip_address=ctx.get("ip_address"),
+                user_agent=ctx.get("user_agent", ""),
+                metadata={"price_id": price_id, "error": str(exc)[:200]},
+            )
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=["post"], url_path="portal")

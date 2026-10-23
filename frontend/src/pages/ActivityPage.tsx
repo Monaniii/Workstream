@@ -16,7 +16,6 @@ const PERIODS = [
 export default function ActivityPage() {
   const { activeWorkspace } = useAuth()
   const [period, setPeriod] = useState("last_30_days")
-  [period]
   const [activity, setActivity] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 

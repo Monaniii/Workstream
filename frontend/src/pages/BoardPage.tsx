@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, Link } from "react-router-dom"
 import {
   DndContext,
   closestCorners,
@@ -30,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: "bg-blue-100 text-blue-700",
   in_review: "bg-purple-100 text-purple-700",
   done: "bg-green-100 text-green-700",
+  blocked: "bg-red-100 text-red-700",
 }
 
 function IssueCard({ issue, columnId, onMove, onOpen }: any) {
@@ -74,17 +75,23 @@ function ColumnCard({ column, issues, onMove, onOpen }: any) {
         <span className="text-xs font-semibold text-gray-400">{items.length}</span>
       </div>
       <div className="flex-1 p-3 min-h-[400px] bg-gray-50/50 border-b border-gray-200 rounded-b-lg">
-        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-          {items.map((issue) => (
-            <IssueCard
-              key={issue.id}
-              issue={issue}
-              columnId={column.id}
-              onMove={onMove}
-              onOpen={onOpen}
-            />
-          ))}
-        </SortableContext>
+        {items.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            Empty column
+          </div>
+        ) : (
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            {items.map((issue) => (
+              <IssueCard
+                key={issue.id}
+                issue={issue}
+                columnId={column.id}
+                onMove={onMove}
+                onOpen={onOpen}
+              />
+            ))}
+          </SortableContext>
+        )}
         <button
           onClick={() => onOpen("new", column.id)}
           className="w-full py-2 mt-2 text-xs text-indigo-600 hover:bg-indigo-50 rounded border border-dashed border-indigo-200 text-center"
@@ -105,32 +112,96 @@ export default function BoardPage() {
   const [statuses, setStatuses] = useState<IssueStatus[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [modal, setModal] = useState<{ open: boolean; issue: Issue | null }>({ open: false, issue: null })
   const [newIssue, setNewIssue] = useState({ title: "", description: "", issue_type: "task", priority: "medium" })
+  const sensors = useSensors(useSensor(PointerSensor))
 
   useEffect(() => {
-    if (!projectId || !activeWorkspace) return
+    if (!projectId || !activeWorkspace || !activeWorkspace.id) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    boardsApi.list({ workspace: String(activeWorkspace.id), project: projectId })
-      .then((boards) => {
-        if (boards.length === 0) {
+    setError(null)
+    let cancelled = false
+
+    Promise.allSettled([
+      boardsApi.list({ workspace: String(activeWorkspace.id), project: projectId }),
+      statusesApi.list({ workspace: String(activeWorkspace.id) }),
+    ]).then((results) => {
+      if (cancelled) return
+
+      const boardsResult = results[0]
+      const statusesResult = results[1]
+
+      let boardData: any = null
+
+      if (boardsResult.status === "fulfilled") {
+        const boardsList = Array.isArray(boardsResult.value) ? boardsResult.value : boardsResult.value?.results ?? []
+        if (boardsList.length === 0) {
           navigate(`/app/projects/${projectId}`)
+          setLoading(false)
           return
         }
-        const b = boards[0]
-        setBoard(b)
-        setColumns(b.columns || [])
-        return issuesApi.list({ project: String(b.project) })
-      })
-      .then((data) => {
-        if (data) {
-          setIssues(data)
+        boardData = boardsList[0]
+        setBoard(boardData)
+        // Fallback: if board has no columns, generate them from issue statuses
+        const boardCols = boardData.columns || []
+        if (boardCols.length > 0) {
+          setColumns(boardCols)
+        } else if (statusesResult.status === "fulfilled") {
+          const statusList = Array.isArray(statusesResult.value) ? statusesResult.value : statusesResult.value?.results ?? []
+          const defaultCols = statusList.map((s: any, idx: number) => ({
+            id: s.key || `status-${s.id}`,
+            name: s.name,
+            color: s.color || "#6B7280",
+            wip_limit: null,
+            position: idx,
+          }))
+          setColumns(defaultCols)
+        } else {
+          // Hardcoded fallback columns
+          setColumns([
+            { id: "todo", name: "To Do", color: "#6B7280", wip_limit: null },
+            { id: "in-progress", name: "In Progress", color: "#3B82F6", wip_limit: null },
+            { id: "done", name: "Done", color: "#10B981", wip_limit: null },
+          ])
         }
+      } else {
+        const err = boardsResult.reason
+        setError("Failed to load boards: " + (err?.response?.data?.detail || err?.message || "unknown error"))
         setLoading(false)
-      })
-      .catch(() => setLoading(false))
+        return
+      }
 
-    statusesApi.list({ workspace: String(activeWorkspace.id) }).then(setStatuses)
+      if (statusesResult.status === "fulfilled") {
+        const statusesData = Array.isArray(statusesResult.value) ? statusesResult.value : statusesResult.value?.results ?? []
+        setStatuses(statusesData)
+      }
+
+      // Now load issues for this project (use boardData, not stale state)
+      return issuesApi.list({ project: String(boardData.project) })
+    }).then((result) => {
+      if (cancelled) return
+      if (result && result.status === "fulfilled") {
+        const issuesData = Array.isArray(result.value) ? result.value : result.value?.results ?? []
+        setIssues(issuesData)
+      } else if (result && result.status === "rejected") {
+        const err = result.reason
+        setError("Failed to load issues: " + (err?.response?.data?.detail || err?.message || "unknown error"))
+      }
+      setLoading(false)
+    }).catch((err) => {
+      if (cancelled) return
+      console.error("Board load error:", err)
+      setError("Failed to load board: " + (err?.message || "unknown error"))
+      setLoading(false)
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [projectId, activeWorkspace])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
@@ -157,7 +228,6 @@ export default function BoardPage() {
     e.preventDefault()
     const firstCol = columns[0]
     if (!firstCol || !board || !activeWorkspace) return
-    // default status: first non-final status
     const defaultStatus = statuses.find((s) => !s.is_final)?.id ?? statuses[0]?.id
     try {
       await issuesApi.create({
@@ -183,37 +253,82 @@ export default function BoardPage() {
 
   if (loading) return <div className="p-8 text-center">Loading board...</div>
 
+  if (error) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center text-center">
+        <h2 className="text-xl font-bold mb-2">Error loading board</h2>
+        <p className="text-red-500 mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (!board) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center text-center">
+        <h2 className="text-xl font-bold mb-2">No board found</h2>
+        <p className="text-gray-500 mb-4">This project doesn't have a board yet.</p>
+        <Link to={`/app/projects/${projectId}`} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+          Back to project
+        </Link>
+      </div>
+    )
+  }
+
+  const columnIdSet = new Set(columns.map((c) => String(c.id)))
   const issuesByColumn = columns.map((c: any) => ({
     ...c,
-    issues: issues.filter((i) => i.column_id === String(c.id)),
+    issues: issues.filter((i) => columnIdSet.has(String(i.column_id)) && String(i.column_id) === String(c.id)),
   }))
+  const unassignedIssues = issues.filter((i) => !columnIdSet.has(String(i.column_id)))
 
   return (
-    <div className="p-4">
+    <div className="flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Kanban Board</h1>
           <p className="text-gray-500 text-sm">Drag issues between columns to update status.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => navigate("/")} className="px-3 py-2 text-sm border rounded hover:bg-gray-100">Back</button>
+          <button onClick={() => navigate("/app/projects/" + projectId)} className="px-3 py-2 text-sm border rounded hover:bg-gray-100">Back</button>
           <button onClick={() => setModal({ open: true, issue: null })} className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
             <Plus className="w-4 h-4 mr-2" /> New issue
           </button>
         </div>
       </div>
 
-      <DndContext sensors={useSensors(useSensor(PointerSensor))} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <div className="flex flex-col gap-4 md:flex-row min-h-[700px] overflow-x-auto">
-          {issuesByColumn.map((column: any) => (
+          {columns.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-gray-400 text-sm">
+              No columns configured for this board.
+            </div>
+          ) : (
+            columns.map((column: any) => (
+              <ColumnCard
+                key={column.id}
+                column={column}
+                issues={issuesByColumn.find((c: any) => c.id === column.id)?.issues ?? []}
+                boardId={board.id}
+                onMove={handleDragEnd}
+                onOpen={handleIssueClick}
+              />
+            ))
+          )}
+          {unassignedIssues.length > 0 && (
             <ColumnCard
-              key={column.id}
-              column={column}
-              issues={column.issues}
+              column={{ id: "unassigned", name: "Unassigned", color: "#9CA3AF" }}
+              issues={unassignedIssues}
+              boardId={board.id}
               onMove={handleDragEnd}
               onOpen={handleIssueClick}
             />
-          ))}
+          )}
         </div>
       </DndContext>
 
@@ -226,7 +341,6 @@ function IssueModal({ open, onClose, issue, onIssueCreated, statuses }: any) {
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState("")
   const [attachments, setAttachments] = useState<any[]>([])
-  const [edit, setEdit] = useState(false)
   const [draft, setDraft] = useState(issue
     ? { title: issue.summary || issue.title, description: issue.description, status: issue.status_key, priority: issue.priority, issue_type: issue.issue_type }
     : { title: "", description: "", status: "todo", priority: "medium", issue_type: "task" })

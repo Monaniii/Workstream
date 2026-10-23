@@ -21,6 +21,7 @@ from issues.models import Issue, IssueStatus, AuditLog
 from notifications.models import Notification
 from .models import ReportExport
 from .serializers import ReportExportSerializer
+from audit.services import AuditService
 
 logger = logging.getLogger(__name__)
 
@@ -479,6 +480,31 @@ class ReportsViewSet(viewsets.ViewSet):
             )
         except Exception:
             logger.exception("Failed to record report export")
+
+        try:
+            AuditService.log_security_event(
+                actor=request.user,
+                workspace=tenant,
+                action="export",
+                module="reports",
+                resource_type="report_export",
+                resource_id="",
+                description=f"Report export: {report_type}",
+                outcome="success",
+                request_id=getattr(request, "audit_context", {}).get("request_id", ""),
+                http_method=request.method,
+                route=getattr(request, "audit_context", {}).get("route", ""),
+                ip_address=getattr(request, "audit_context", {}).get("ip_address"),
+                user_agent=getattr(request, "audit_context", {}).get("user_agent", ""),
+                metadata={
+                    "report_type": report_type,
+                    "format": "csv",
+                    "start_date": str(start) if start else None,
+                    "end_date": str(end) if end else None,
+                },
+            )
+        except Exception:
+            logger.exception("Failed to record audit event for report export")
 
         response = HttpResponse(buffer.getvalue(), content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
