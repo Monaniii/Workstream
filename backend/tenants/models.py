@@ -16,6 +16,13 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     avatar_url = models.URLField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text=(
+            "Set for accounts provisioned by a workspace admin: the user must "
+            "replace the emailed temporary password before using the app."
+        ),
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]

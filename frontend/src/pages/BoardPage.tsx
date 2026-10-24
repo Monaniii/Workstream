@@ -12,8 +12,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-
 import { CSS } from "@dnd-kit/utilities"
 import { useAuth } from "../context/AuthContext"
 import {
-  issuesApi, boardsApi, statusesApi, commentsApi, attachmentsApi,
-  Issue, IssueStatus,
+  issuesApi, boardsApi, statusesApi, commentsApi, attachmentsApi, projectsApi,
+  Issue, IssueStatus, ProjectTeamMember,
 } from "../services"
 import { Plus, MessageSquare, Paperclip, ChevronRight, X, Copy } from "lucide-react"
 import toast from "react-hot-toast"
@@ -43,6 +43,10 @@ function IssueCard({ issue, columnId, onMove, onOpen }: any) {
       style={style}
       {...listeners}
       {...attributes}
+      onClick={(event) => {
+        event.stopPropagation()
+        onOpen(issue.id)
+      }}
       className={`relative p-3 mb-3 rounded-lg border border-gray-200 bg-white shadow-sm cursor-pointer transition hover:shadow-md group ${STATUS_COLORS[issue.status_key] || ""}`}
     >
       <div className="flex items-start gap-2 mb-1">
@@ -106,15 +110,19 @@ function ColumnCard({ column, issues, onMove, onOpen }: any) {
 export default function BoardPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const { activeWorkspace } = useAuth()
+  const { activeWorkspace, user } = useAuth()
   const [columns, setColumns] = useState<any[]>([])
   const [board, setBoard] = useState<any>(null)
   const [statuses, setStatuses] = useState<IssueStatus[]>([])
   const [issues, setIssues] = useState<Issue[]>([])
+  const [projectTeam, setProjectTeam] = useState<ProjectTeamMember[]>([])
+  const [projectManagerId, setProjectManagerId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [modal, setModal] = useState<{ open: boolean; issue: Issue | null }>({ open: false, issue: null })
-  const [newIssue, setNewIssue] = useState({ title: "", description: "", issue_type: "task", priority: "medium" })
+  const canAssignTasks =
+    ["admin", "manager"].includes(activeWorkspace?.current_user_role || "") ||
+    projectManagerId === user?.id
   const sensors = useSensors(useSensor(PointerSensor))
 
   useEffect(() => {
@@ -204,6 +212,21 @@ export default function BoardPage() {
     }
   }, [projectId, activeWorkspace])
 
+  useEffect(() => {
+    if (!projectId) return
+    Promise.all([
+      projectsApi.members(Number(projectId)),
+      projectsApi.get(Number(projectId)),
+    ])
+      .then(([team, project]) => {
+        setProjectTeam(team)
+        setProjectManagerId(project.manager ?? null)
+      })
+      .catch((err: any) => {
+        toast.error(err.response?.data?.detail || "Failed to load project team")
+      })
+  }, [projectId])
+
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -224,30 +247,46 @@ export default function BoardPage() {
     setModal({ open: true, issue: issue || null })
   }
 
-  const handleNewIssueSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleNewIssueSubmit = async (draft: {
+    title: string
+    description: string
+    issue_type: string
+    priority: string
+    assignee: string
+  }) => {
     const firstCol = columns[0]
-    if (!firstCol || !board || !activeWorkspace) return
-    const defaultStatus = statuses.find((s) => !s.is_final)?.id ?? statuses[0]?.id
+    if (!firstCol || !board || !activeWorkspace) {
+      toast.error("The project board is not ready to create a task.")
+      return false
+    }
+    const defaultStatus =
+      statuses.find((s) => s.is_initial)?.id ??
+      statuses.find((s) => !s.is_final)?.id ??
+      statuses[0]?.id
     try {
       await issuesApi.create({
         project: board.project,
         board: board.id,
-        summary: newIssue.title,
-        title: newIssue.title,
-        description: newIssue.description,
-        issue_type: newIssue.issue_type,
-        priority: newIssue.priority,
+        summary: draft.title,
+        title: draft.title,
+        description: draft.description,
+        issue_type: draft.issue_type,
+        priority: draft.priority,
+        ...(canAssignTasks
+          ? { assignee: draft.assignee ? Number(draft.assignee) : null }
+          : {}),
         status: defaultStatus,
         column_id: String(firstCol.id),
         position: 0,
       })
       setModal({ open: false, issue: null })
-      setNewIssue({ title: "", description: "", issue_type: "task", priority: "medium" })
       toast.success("Issue created")
       window.location.reload()
+      return true
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to create issue")
+      const data = err.response?.data
+      toast.error(data?.assignee || data?.detail || "Failed to create issue")
+      return false
     }
   }
 
@@ -332,50 +371,92 @@ export default function BoardPage() {
         </div>
       </DndContext>
 
-      <IssueModal open={modal.open} onClose={() => setModal({ open: false, issue: null })} issue={modal.issue} onIssueCreated={() => window.location.reload()} statuses={statuses} />
+      <IssueModal
+        open={modal.open}
+        onClose={() => setModal({ open: false, issue: null })}
+        issue={modal.issue}
+        onIssueCreated={() => window.location.reload()}
+        onCreateIssue={handleNewIssueSubmit}
+        statuses={statuses}
+        teamMembers={projectTeam}
+        canAssignTasks={canAssignTasks}
+      />
     </div>
   )
 }
 
-function IssueModal({ open, onClose, issue, onIssueCreated, statuses }: any) {
+function IssueModal({
+  open,
+  onClose,
+  issue,
+  onIssueCreated,
+  onCreateIssue,
+  statuses,
+  teamMembers,
+  canAssignTasks,
+}: any) {
   const [comments, setComments] = useState<any[]>([])
   const [newComment, setNewComment] = useState("")
   const [attachments, setAttachments] = useState<any[]>([])
   const [draft, setDraft] = useState(issue
-    ? { title: issue.summary || issue.title, description: issue.description, status: issue.status_key, priority: issue.priority, issue_type: issue.issue_type }
-    : { title: "", description: "", status: "todo", priority: "medium", issue_type: "task" })
+    ? { title: issue.summary || issue.title, description: issue.description, status: issue.status_key, priority: issue.priority, issue_type: issue.issue_type, assignee: String(issue.assignee || "") }
+    : { title: "", description: "", status: "todo", priority: "medium", issue_type: "task", assignee: "" })
+  const assignableTeamMembers = teamMembers.filter(
+    (member: ProjectTeamMember) => member.role !== "viewer"
+  )
 
   useEffect(() => {
+    setDraft(issue
+      ? { title: issue.summary || issue.title, description: issue.description, status: issue.status_key, priority: issue.priority, issue_type: issue.issue_type, assignee: String(issue.assignee || "") }
+      : { title: "", description: "", status: statuses.find((s: any) => s.is_initial)?.key || "todo", priority: "medium", issue_type: "task", assignee: "" })
+    setComments([])
+    setAttachments([])
     if (issue) {
       commentsApi.list(issue.id).then(setComments)
       attachmentsApi.list(issue.id).then(setAttachments)
     }
-  }, [issue])
+  }, [issue, open, statuses])
 
   const handleSave = async () => {
-    if (!issue) return
     try {
-      await issuesApi.update(issue.id, {
-        summary: draft.title,
-        description: draft.description,
-        priority: draft.priority,
-        issue_type: draft.issue_type,
-      })
-      const status = statuses.find((s: any) => s.key === draft.status)
-      if (status) await issuesApi.transition(issue.id, status.id)
-      toast.success("Saved")
+      if (issue) {
+        await issuesApi.update(issue.id, {
+          summary: draft.title,
+          description: draft.description,
+          priority: draft.priority,
+          issue_type: draft.issue_type,
+          ...(canAssignTasks
+            ? { assignee: draft.assignee ? Number(draft.assignee) : null }
+            : {}),
+        })
+        const status = statuses.find((s: any) => s.key === draft.status)
+        if (status) await issuesApi.transition(issue.id, status.id)
+        toast.success("Saved")
+      } else {
+        if (!draft.title.trim()) {
+          toast.error("Task title is required")
+          return
+        }
+        const created = await onCreateIssue(draft)
+        if (!created) return
+      }
       onClose()
-      onIssueCreated()
+      if (issue) onIssueCreated()
     } catch (err: any) {
-      toast.error("Failed to save changes")
+      const data = err.response?.data
+      toast.error(
+        data?.assignee || data?.detail || "Failed to save changes"
+      )
     }
   }
 
+  if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      {!open && null}
-      {open && (
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <h2 className="text-lg font-bold">{issue ? issue.key : "New issue"}</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -393,6 +474,28 @@ function IssueModal({ open, onClose, issue, onIssueCreated, statuses }: any) {
                 </select>
               </div>
             </div>
+            {canAssignTasks && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Assign to project team member</label>
+                <select
+                  className="w-full rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={draft.assignee}
+                  onChange={(e) => setDraft({ ...draft, assignee: e.target.value })}
+                >
+                  <option value="">Unassigned</option>
+                  {assignableTeamMembers.map((member: ProjectTeamMember) => (
+                    <option key={member.id} value={member.id}>
+                      {member.full_name || member.email}
+                    </option>
+                  ))}
+                </select>
+                {assignableTeamMembers.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Add non-viewer project team members before assigning tasks.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Priority</label>
@@ -418,6 +521,7 @@ function IssueModal({ open, onClose, issue, onIssueCreated, statuses }: any) {
               <textarea className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" rows={4} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
             </div>
 
+            {issue && (
             <div className="pt-4 border-t border-gray-100">
               <h3 className="text-sm font-semibold mb-2">Comments</h3>
               <div className="space-y-3">
@@ -437,7 +541,9 @@ function IssueModal({ open, onClose, issue, onIssueCreated, statuses }: any) {
                 <button disabled className="px-4 py-2 bg-gray-200 text-gray-600 rounded disabled:opacity-50">Send</button>
               </div>
             </div>
+            )}
 
+            {issue && (
             <div className="pt-4 border-t border-gray-100">
               <h3 className="text-sm font-semibold mb-2">Attachments</h3>
               <div className="space-y-2">
@@ -449,13 +555,15 @@ function IssueModal({ open, onClose, issue, onIssueCreated, statuses }: any) {
                 ))}
               </div>
             </div>
+            )}
           </div>
           <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
             <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Close</button>
-            <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save changes</button>
+            <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+              {issue ? "Save changes" : "Create task"}
+            </button>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

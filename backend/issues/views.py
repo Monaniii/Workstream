@@ -179,6 +179,7 @@ class IssueViewSet(viewsets.ModelViewSet):
         old_column = instance.column_id
         old_position = instance.position
         issue = serializer.save()
+        project = issue.project
         changes = {}
         if old_status != issue.status_id:
             changes["status"] = {"from": old_status, "to": issue.status_id}

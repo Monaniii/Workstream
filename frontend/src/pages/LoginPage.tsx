@@ -1,6 +1,6 @@
 import { useAuth } from "../context/AuthContext"
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { LogIn, Mail, Lock } from "lucide-react"
 
 export default function LoginPage() {
@@ -98,9 +98,9 @@ export default function LoginPage() {
                   <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                   Remember me
                 </label>
-                <Link to="/" className="text-sm text-blue-600 hover:underline font-medium">
+                <span className="text-sm text-slate-500" title="Ask your workspace admin to reset it">
                   Forgot password?
-                </Link>
+                </span>
               </div>
               <button
                 className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-sm shadow-blue-500/20"
@@ -110,10 +110,8 @@ export default function LoginPage() {
               </button>
             </form>
             <p className="text-center text-sm text-slate-500">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-blue-600 hover:underline font-medium">
-                Create one
-              </Link>
+              Accounts are created by your workspace admin. Check your email for
+              your login details.
             </p>
           </div>
         </div>

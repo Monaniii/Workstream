@@ -8,6 +8,7 @@ export interface Workspace {
   slug: string
   plan: string
   member_count?: number
+  current_user_role?: "admin" | "manager" | "member" | "viewer" | null
 }
 
 export interface Membership {
@@ -15,6 +16,8 @@ export interface Membership {
   user: number
   user_email: string
   role: string
+  must_change_password?: boolean
+  email_sent?: boolean
 }
 
 export interface Project {
@@ -23,6 +26,29 @@ export interface Project {
   name: string
   key: string
   description: string
+  objectives?: string
+  status?: string
+  priority?: string
+  owner?: number | null
+  owner_email?: string
+  owner_name?: string
+  manager?: number | null
+  manager_name?: string
+  start_date?: string | null
+  target_date?: string | null
+  visibility?: string
+  tags?: string[]
+  progress_percentage?: number
+  team_members?: number[]
+  health?: string
+}
+
+export interface ProjectTeamMember {
+  id: number
+  email: string
+  username: string
+  full_name: string
+  role?: string
 }
 
 export interface Board {
@@ -72,6 +98,7 @@ export interface Issue {
   status: number
   status_name: string
   status_key: string
+  status_is_final: boolean
   priority: string
   issue_type: string
   assignee: number | null
@@ -122,6 +149,13 @@ axiosInstance.interceptors.response.use(
   (error) => Promise.reject(error)
 )
 
+export const authApi = {
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    axiosInstance
+      .post<{ token: string; user: any }>("/auth/change-password/", data)
+      .then((r) => r.data),
+}
+
 export const workspacesApi = {
   list: () => axiosInstance.get<Workspace[]>("/tenants/workspaces/").then((r) => r.data),
   create: (data: { name: string; slug?: string; plan?: string }) =>
@@ -130,8 +164,13 @@ export const workspacesApi = {
     axiosInstance.patch<Workspace>(`/tenants/workspaces/${id}/`, data).then((r) => r.data),
   members: (id: number) =>
     axiosInstance.get<Membership[]>(`/tenants/workspaces/${id}/members/`).then((r) => r.data),
-  addMember: (id: number, data: { user: number; role: string }) =>
-    axiosInstance.post(`/tenants/workspaces/${id}/members/`, data).then((r) => r.data),
+  addMember: (
+    id: number,
+    data: { email: string; role: string; first_name?: string; last_name?: string }
+  ) =>
+    axiosInstance
+      .post<Membership & { email_sent?: boolean }>(`/tenants/workspaces/${id}/members/`, data)
+      .then((r) => r.data),
   updateMemberRole: (id: number, memberId: number, role: string) =>
     axiosInstance.patch(`/tenants/workspaces/${id}/members/${memberId}/`, { role }).then((r) => r.data),
   removeMember: (id: number, memberId: number) =>
@@ -143,9 +182,15 @@ export const projectsApi = {
     axiosInstance.get<Project[]>("/projects/", { params }).then((r) => r.data),
   create: (data: Partial<Project>) =>
     axiosInstance.post<Project>("/projects/", data).then((r) => r.data),
+  get: (id: number) =>
+    axiosInstance.get<Project>(`/projects/${id}/`).then((r) => r.data),
   update: (id: number, data: Partial<Project>) =>
     axiosInstance.patch<Project>(`/projects/${id}/`, data).then((r) => r.data),
   remove: (id: number) => axiosInstance.delete(`/projects/${id}/`),
+  members: (id: number) =>
+    axiosInstance.get<ProjectTeamMember[]>(`/projects/${id}/members/`).then((r) => r.data),
+  updateMembers: (id: number, member_ids: number[]) =>
+    axiosInstance.put<ProjectTeamMember[]>(`/projects/${id}/members/`, { member_ids }).then((r) => r.data),
 }
 
 export const boardsApi = {

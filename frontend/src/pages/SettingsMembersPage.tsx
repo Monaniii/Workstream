@@ -12,12 +12,20 @@ const ROLES = [
 ]
 
 export default function SettingsMembersPage() {
-  const { activeWorkspace, setActiveWorkspace, workspaces } = useAuth()
+  const { user, activeWorkspace, setActiveWorkspace, workspaces } = useAuth()
+  // Managers can read the roster but not onboard users; that is admin work.
+  const canOnboard =
+    Boolean(user?.is_superuser) || activeWorkspace?.current_user_role === "admin"
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [adding, setAdding] = useState(false)
-  const [newMemberEmail, setNewMemberEmail] = useState("")
-  const [newMemberRole, setNewMemberRole] = useState("member")
+  const [addingSubmit, setAddingSubmit] = useState(false)
+  const [newMember, setNewMember] = useState({
+    email: "",
+    first_name: "",
+    last_name: "",
+    role: "member",
+  })
 
   const loadMembers = async () => {
     if (!activeWorkspace) return
@@ -39,19 +47,34 @@ export default function SettingsMembersPage() {
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!activeWorkspace) return
-    setAdding(true)
+    setAddingSubmit(true)
     try {
-      await workspacesApi.addMember(activeWorkspace.id, {
-        user: 0, // placeholder - real implementation would look up user by email
-        role: newMemberRole,
+      const created = await workspacesApi.addMember(activeWorkspace.id, {
+        email: newMember.email.trim(),
+        role: newMember.role,
+        first_name: newMember.first_name.trim(),
+        last_name: newMember.last_name.trim(),
       })
-      setNewMemberEmail("")
-      loadMembers()
-      toast.success("Member added")
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to add member")
-    } finally {
+      setNewMember({ email: "", first_name: "", last_name: "", role: "member" })
       setAdding(false)
+      loadMembers()
+      if (created.email_sent === false) {
+        toast.error(
+          "Account created, but the credentials email could not be sent. Check the server email settings."
+        )
+      } else {
+        toast.success(`Account created. Login details emailed to ${created.user_email}`)
+      }
+    } catch (err: any) {
+      const data = err.response?.data
+      const message =
+        data?.email?.[0] ||
+        data?.role?.[0] ||
+        data?.detail ||
+        "Failed to create the account"
+      toast.error(message)
+    } finally {
+      setAddingSubmit(false)
     }
   }
 
@@ -91,7 +114,9 @@ export default function SettingsMembersPage() {
         <div>
           <h1 className="text-2xl font-bold">Workspace Members</h1>
           <p className="text-gray-500 text-sm">
-            Manage team members, roles, and access
+            {canOnboard
+              ? "Manage team members, roles, and access"
+              : "People in this workspace and their roles"}
           </p>
         </div>
       </div>
@@ -102,43 +127,82 @@ export default function SettingsMembersPage() {
           <h2 className="text-lg font-semibold">Members</h2>
         </div>
 
-        {adding ? (
-          <form onSubmit={handleAddMember} className="flex gap-3 mb-6">
-            <input
-              type="email"
-              value={newMemberEmail}
-              onChange={(e) => setNewMemberEmail(e.target.value)}
-              placeholder="Email address"
-              className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-            <select
-              value={newMemberRole}
-              onChange={(e) => setNewMemberRole(e.target.value)}
-              className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {ROLES.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {r.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              disabled={adding}
-              className="bg-indigo-600 text-white px-4 py-2 rounded font-medium hover:bg-indigo-700 disabled:opacity-60"
-            >
-              Add
-            </button>
-          </form>
-        ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 transition"
-          >
-            <Plus className="w-4 h-4" /> Add member
-          </button>
+        {!canOnboard && (
+          <p className="mb-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            You can view the roster and use these people on your project
+            teams. Adding or removing accounts is handled by a workspace admin.
+          </p>
         )}
+
+        {canOnboard ? (
+          adding ? (
+          <form
+            onSubmit={handleAddMember}
+            className="mb-6 rounded-lg border-gray-200 bg-gray-50 p-4"
+          >
+            <p className="mb-3 text-xs text-gray-600">
+              Creates a new account. The person receives an email with their
+              login details and sets their own password on first sign-in.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <input
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={newMember.first_name}
+                onChange={(e) => setNewMember({ ...newMember, first_name: e.target.value })}
+                placeholder="First name"
+              />
+              <input
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={newMember.last_name}
+                onChange={(e) => setNewMember({ ...newMember, last_name: e.target.value })}
+                placeholder="Last name"
+              />
+              <input
+                type="email"
+                value={newMember.email}
+                onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                placeholder="Email address"
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              />
+              <select
+                value={newMember.role}
+                onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="submit"
+                disabled={addingSubmit}
+                className="bg-indigo-600 text-white px-4 py-2 rounded font-medium hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {addingSubmit ? "Creating..." : "Create account & email credentials"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdding(false)}
+                className="px-4 py-2 rounded text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 transition"
+            >
+              <Plus className="w-4 h-4" /> Create member account
+            </button>
+          )
+        ) : null}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -176,27 +240,40 @@ export default function SettingsMembersPage() {
                   >
                     <td className="py-3 text-sm text-gray-900">
                       {m.user_email || m.email || "Unknown"}
+                      {m.must_change_password && (
+                        <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                          Pending first sign-in
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 text-sm">
-                      <select
-                        value={m.role}
-                        onChange={(e) => handleRoleChange(m.id, e.target.value)}
-                        className="border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r.value} value={r.value}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
+                      {canOnboard ? (
+                        <select
+                          value={m.role}
+                          onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                          className="border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs capitalise text-gray-700">
+                          {ROLES.find((r) => r.value === m.role)?.label ?? m.role}
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 text-sm text-right">
-                      <button
-                        onClick={() => handleRemoveMember(m.id)}
-                        className="text-xs text-red-500 hover:text-red-700 transition"
-                      >
-                        <Trash2 className="w-4 h-4" /> Remove
-                      </button>
+                      {canOnboard && (
+                        <button
+                          onClick={() => handleRemoveMember(m.id)}
+                          className="text-xs text-red-500 hover:text-red-700 transition"
+                        >
+                          <Trash2 className="w-4 h-4" /> Remove
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

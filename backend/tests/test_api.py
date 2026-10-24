@@ -108,6 +108,207 @@ class TestProjects:
         assert resp.status_code == 200
         assert all(p["workspace"] == workspace.id for p in resp.data["results"])
 
+    def test_member_cannot_create_project(self, api_client, member_user, workspace):
+        WorkspaceMember.objects.create(
+            user=member_user, workspace=workspace, role="member"
+        )
+        token, _ = Token.objects.get_or_create(user=member_user)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+            HTTP_X_TENANT_SLUG=workspace.slug,
+        )
+        resp = api_client.post(
+            "/api/projects/",
+            {"name": "Restricted", "key": "REST"},
+            format="json",
+        )
+        assert resp.status_code == 403
+
+    def test_manager_onboards_project_team_board_and_task_assignment(
+        self, api_client, workspace
+    ):
+        manager = User.objects.create_user(
+            email="manager@example.com", username="manager", password="password123"
+        )
+        teammate = User.objects.create_user(
+            email="teammate@example.com", username="teammate", password="password123"
+        )
+        other_member = User.objects.create_user(
+            email="other@example.com", username="other", password="password123"
+        )
+        WorkspaceMember.objects.create(
+            user=manager, workspace=workspace, role="manager"
+        )
+        WorkspaceMember.objects.create(
+            user=teammate, workspace=workspace, role="member"
+        )
+        WorkspaceMember.objects.create(
+            user=other_member, workspace=workspace, role="member"
+        )
+        token, _ = Token.objects.get_or_create(user=manager)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+            HTTP_X_TENANT_SLUG=workspace.slug,
+        )
+
+        response = api_client.post(
+            "/api/projects/",
+            {
+                "name": "Team Project",
+                "key": "TEAM",
+                "manager": manager.id,
+                "team_members": [teammate.id],
+            },
+            format="json",
+        )
+        assert response.status_code == 201, response.data
+        project = Project.objects.get(id=response.data["id"])
+        assert set(project.team_members.values_list("id", flat=True)) == {
+            manager.id,
+            teammate.id,
+        }
+        board = Board.objects.get(project=project)
+        assert board.columns
+
+        status = IssueStatus.objects.get(workspace=workspace, is_initial=True)
+        assigned = api_client.post(
+            "/api/issues/",
+            {
+                "project": project.id,
+                "board": board.id,
+                "status": status.id,
+                "summary": "Assigned task",
+                "assignee": teammate.id,
+            },
+            format="json",
+        )
+        assert assigned.status_code == 201, assigned.data
+        teammate_token, _ = Token.objects.get_or_create(user=teammate)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {teammate_token.key}",
+            HTTP_X_TENANT_SLUG=workspace.slug,
+        )
+        reassignment = api_client.patch(
+            f"/api/issues/{assigned.data['id']}/",
+            {"assignee": manager.id},
+            format="json",
+        )
+        assert reassignment.status_code == 400
+
+        manager_token, _ = Token.objects.get_or_create(user=manager)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {manager_token.key}",
+            HTTP_X_TENANT_SLUG=workspace.slug,
+        )
+        rejected = api_client.post(
+            "/api/issues/",
+            {
+                "project": project.id,
+                "board": board.id,
+                "status": status.id,
+                "summary": "Out-of-team task",
+                "assignee": other_member.id,
+            },
+            format="json",
+        )
+        assert rejected.status_code == 400
+
+    def test_project_manager_can_assign_tasks_without_workspace_manager_role(
+        self, api_client, workspace
+    ):
+        project_manager = User.objects.create_user(
+            email="project-manager@example.com",
+            username="project-manager",
+            password="password123",
+        )
+        teammate = User.objects.create_user(
+            email="project-teammate@example.com",
+            username="project-teammate",
+            password="password123",
+        )
+        WorkspaceMember.objects.create(
+            user=project_manager, workspace=workspace, role="member"
+        )
+        WorkspaceMember.objects.create(
+            user=teammate, workspace=workspace, role="member"
+        )
+        project = Project.objects.create(
+            workspace=workspace,
+            name="Managed project",
+            key="MGR",
+            manager=project_manager,
+        )
+        project.team_members.add(project_manager, teammate)
+        board = Board.objects.create(
+            workspace=workspace, project=project, name="Managed board", columns=[]
+        )
+        status = IssueStatus.objects.create(
+            workspace=workspace, name="To Do", key="todo", is_initial=True
+        )
+        issue = Issue.objects.create(
+            workspace=workspace,
+            project=project,
+            board=board,
+            status=status,
+            key="MGR-1",
+            summary="Unassigned task",
+        )
+
+        token, _ = Token.objects.get_or_create(user=project_manager)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+            HTTP_X_TENANT_SLUG=workspace.slug,
+        )
+        response = api_client.patch(
+            f"/api/issues/{issue.id}/",
+            {"assignee": teammate.id},
+            format="json",
+        )
+        assert response.status_code == 200, response.data
+        issue.refresh_from_db()
+        assert issue.assignee_id == teammate.id
+
+    def test_project_completion_percentage_uses_final_task_statuses(
+        self, client_admin, workspace
+    ):
+        project = Project.objects.create(
+            workspace=workspace, name="Progress project", key="PROG"
+        )
+        open_status = IssueStatus.objects.create(
+            workspace=workspace, name="To Do", key="todo", is_initial=True
+        )
+        done_status = IssueStatus.objects.create(
+            workspace=workspace, name="Done", key="done", is_final=True
+        )
+        Issue.objects.create(
+            workspace=workspace,
+            project=project,
+            status=open_status,
+            key="PROG-1",
+            summary="Open task",
+        )
+        Issue.objects.create(
+            workspace=workspace,
+            project=project,
+            status=done_status,
+            key="PROG-2",
+            summary="Completed task",
+        )
+
+        project_response = client_admin.get(f"/api/projects/{project.id}/")
+        assert project_response.status_code == 200
+        assert project_response.data["progress_percentage"] == 50
+
+        issue_response = client_admin.get(
+            "/api/issues/", {"project": project.id}, format="json"
+        )
+        assert issue_response.status_code == 200
+        serialized_issues = issue_response.data["results"]
+        assert {issue["status_is_final"] for issue in serialized_issues} == {
+            False,
+            True,
+        }
+
 
 @pytest.mark.django_db
 class TestIssues:

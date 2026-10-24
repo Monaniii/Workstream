@@ -178,5 +178,12 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 # Tenant
 TENANT_HEADER = "X-Tenant-Slug"
 
+# Email
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
+# Frontend origin (used for CORS/CSRF and links in outgoing email)
+FRONTEND_URL = env("FRONTEND_URL")
+
 # Audit logging
 AUDIT_RETENTION_DAYS = 365

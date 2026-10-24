@@ -15,6 +15,8 @@ class IsAuditAdministrator(permissions.BasePermission):
             return False
         if getattr(request.user, "is_superuser", False):
             return True
+        # Audit events are always scoped to a workspace; without one there is
+        # no tenant administrator context to authorise against.
         tenant = getattr(request, "tenant", None)
         if not tenant:
             return False

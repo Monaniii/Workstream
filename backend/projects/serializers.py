@@ -1,8 +1,15 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from tenants.models import WorkspaceMember
 from .models import Project, Board, Sprint
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    team_members = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=get_user_model().objects.all(),
+        required=False,
+    )
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
     manager_email = serializers.EmailField(source="manager.email", read_only=True)
     owner_name = serializers.CharField(
@@ -13,6 +20,12 @@ class ProjectSerializer(serializers.ModelSerializer):
     )
     health = serializers.CharField(read_only=True)
     progress_percentage = serializers.FloatField(read_only=True)
+
+    def get_fields(self):
+        fields = super().get_fields()
+        if self.instance:
+            fields["team_members"].read_only = True
+        return fields
 
     class Meta:
         model = Project
@@ -31,6 +44,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "manager",
             "manager_email",
             "manager_name",
+            "team_members",
             "start_date",
             "target_date",
             "actual_start_date",
@@ -63,6 +77,28 @@ class ProjectSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"target_date": "Target date cannot be earlier than start date."}
             )
+        workspace = getattr(self.context.get("request"), "tenant", None)
+        if workspace:
+            for field in ("owner", "manager"):
+                user = attrs.get(field)
+                if user and not WorkspaceMember.objects.filter(
+                    workspace=workspace, user=user
+                ).exists():
+                    raise serializers.ValidationError(
+                        {field: "User must be a member of this workspace."}
+                    )
+            team_members = attrs.get("team_members", [])
+            if team_members:
+                member_ids = set(
+                    WorkspaceMember.objects.filter(
+                        workspace=workspace,
+                        user__in=team_members,
+                    ).values_list("user_id", flat=True)
+                )
+                if member_ids != {member.id for member in team_members}:
+                    raise serializers.ValidationError(
+                        {"team_members": "All project team members must belong to this workspace."}
+                    )
         return attrs
 
 

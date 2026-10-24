@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from tenants.models import MembershipRole, WorkspaceMember
 from .models import (
     IssueStatus,
     Issue,
@@ -27,6 +28,7 @@ class IssueStatusSerializer(serializers.ModelSerializer):
 class IssueSerializer(serializers.ModelSerializer):
     status_name = serializers.CharField(source="status.name", read_only=True)
     status_key = serializers.CharField(source="status.key", read_only=True)
+    status_is_final = serializers.BooleanField(source="status.is_final", read_only=True)
     assignee_email = serializers.EmailField(source="assignee.email", read_only=True)
     reporter_email = serializers.EmailField(source="reporter.email", read_only=True)
     project_key = serializers.CharField(source="project.key", read_only=True)
@@ -48,6 +50,7 @@ class IssueSerializer(serializers.ModelSerializer):
             "status",
             "status_name",
             "status_key",
+            "status_is_final",
             "priority",
             "issue_type",
             "assignee",
@@ -60,6 +63,61 @@ class IssueSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "workspace", "key", "created_at", "updated_at")
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        project = attrs.get("project", self.instance.project if self.instance else None)
+        if project and request and project.workspace_id != request.tenant.id:
+            raise serializers.ValidationError(
+                {"project": "Project does not belong to this workspace."}
+            )
+
+        assignee_provided = "assignee" in attrs
+        assignee = attrs.get(
+            "assignee",
+            self.instance.assignee if self.instance else None,
+        )
+        project_changed = bool(
+            self.instance and project and project.pk != self.instance.project_id
+        )
+        if assignee_provided or (project_changed and assignee is not None):
+            if not project or not request:
+                raise serializers.ValidationError(
+                    {"assignee": "A project and authenticated workspace are required."}
+                )
+            role = WorkspaceMember.objects.filter(
+                workspace=project.workspace, user=request.user
+            ).values_list("role", flat=True).first()
+            if (
+                role not in (MembershipRole.ADMIN, MembershipRole.MANAGER)
+                and project.manager_id != request.user.id
+            ):
+                raise serializers.ValidationError(
+                    {"assignee": "Only workspace admins, managers, or the project manager can assign tasks."}
+                )
+            if assignee is not None:
+                assignee_membership = (
+                    WorkspaceMember.objects.filter(
+                        workspace=project.workspace, user=assignee
+                    )
+                    .only("role")
+                    .first()
+                    if project
+                    else None
+                )
+                if not assignee_membership:
+                    raise serializers.ValidationError(
+                        {"assignee": "Assignee must belong to this workspace."}
+                    )
+                if assignee_membership.role == MembershipRole.VIEWER:
+                    raise serializers.ValidationError(
+                        {"assignee": "Read-only viewers cannot be assigned tasks."}
+                    )
+                if not project.team_members.filter(pk=assignee.pk).exists():
+                    raise serializers.ValidationError(
+                        {"assignee": "Assignee must be a member of this project team."}
+                    )
+        return attrs
 
 
 class IssueCommentSerializer(serializers.ModelSerializer):

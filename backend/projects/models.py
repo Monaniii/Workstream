@@ -28,6 +28,9 @@ class Project(models.Model):
     workspace = models.ForeignKey(
         Workspace, on_delete=models.CASCADE, related_name="projects"
     )
+    team_members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name="team_projects", blank=True
+    )
     name = models.CharField(max_length=200)
     key = models.CharField(max_length=10, help_text="Short project key, e.g. PROJ")
     description = models.TextField(blank=True, default="")

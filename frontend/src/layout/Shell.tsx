@@ -23,7 +23,6 @@ const NAV_ITEMS = [
   { name: "Dashboard", href: "/app", icon: Layout },
   { name: "Projects", href: "/app/projects", icon: Briefcase },
   { name: "Reports", href: "/app/reports", icon: BarChart3 },
-  { name: "Team", href: "/app/settings/members", icon: User },
   { name: "Activity", href: "/app/activity", icon: ClipboardList },
   { name: "Calendar", href: "/app/calendar", icon: Calendar },
   { name: "Notifications", href: "/app/notifications", icon: Bell },
@@ -31,7 +30,6 @@ const NAV_ITEMS = [
 
 const SETTINGS_ITEMS = [
   { name: "Workspace", href: "/app/settings/general", icon: Settings },
-  { name: "Members", href: "/app/settings/members", icon: User },
   { name: "Billing", href: "/app/billing", icon: CreditCard },
 ]
 
@@ -56,7 +54,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   const isActive = (path: string) => location.pathname.startsWith(path)
-  const showAudit = user?.is_superuser || user?.is_staff
+  // Audit Log is restricted to platform superusers and workspace admins.
+  const showAudit =
+    Boolean(user?.is_superuser) || activeWorkspace?.current_user_role === "admin"
+  // Member roster is visible to admins and managers (managers need it to
+  // staff their project teams). Onboarding inside it is admin-only.
+  const showMembers = ["admin", "manager"].includes(
+    activeWorkspace?.current_user_role || ""
+  )
+  const canManageProjects = ["admin", "manager"].includes(
+    activeWorkspace?.current_user_role || ""
+  )
 
   const initials = (name?: string | null) => {
     if (!name) return "U"
@@ -125,6 +133,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="border-t border-slate-800/40 pt-5">
+            {showMembers && (
+              <Link
+                to="/app/settings/members"
+                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-slate-400 hover:text-white hover:bg-slate-800/50`}
+              >
+                <User className="w-5 h-5 shrink-0" />
+                Members
+              </Link>
+            )}
             {SETTINGS_ITEMS.map((item) => (
               <Link
                 key={item.name}
@@ -206,12 +223,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   className="w-full pl-10 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white"
                 />
               </div>
-              <Link
-                to="/app/projects/new"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
-              >
-                <Briefcase className="w-4 h-4 mr-2" /> New project
-              </Link>
+              {canManageProjects && (
+                <Link
+                  to="/app/projects/new"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+                >
+                  <Briefcase className="w-4 h-4 mr-2" /> New project
+                </Link>
+              )}
             </div>
 
             <div className="flex items-center gap-3">

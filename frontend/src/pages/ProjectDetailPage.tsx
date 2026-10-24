@@ -6,6 +6,10 @@ import {
   boardsApi,
   sprintsApi,
   issuesApi,
+  projectsApi,
+  workspacesApi,
+  Membership,
+  ProjectTeamMember,
 } from "../services"
 import {
   Briefcase,
@@ -167,18 +171,19 @@ export default function ProjectDetailPage() {
     )
   }
 
-  const openIssues = issues.filter((i) => !i.status__is_final)
-  const completedIssues = issues.filter((i) => i.status__is_final)
+  const openIssues = issues.filter((i) => !i.status_is_final)
+  const completedIssues = issues.filter((i) => i.status_is_final)
   const overdueIssues = issues.filter(
     (i) =>
-      !i.status__is_final &&
+      !i.status_is_final &&
       i.created_at &&
       new Date(i.created_at) < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   )
-  const completionRate =
+  const completionRate = project?.progress_percentage ?? (
     issues.length > 0
       ? Math.round((completedIssues.length / issues.length) * 100)
       : 0
+  )
 
   const tabs = [
     { id: "overview", label: "Overview", icon: Briefcase },
@@ -243,7 +248,11 @@ export default function ProjectDetailPage() {
           />
         )}
         {activeTab === "tasks" && (
-          <TasksContent issues={issues} projectId={projectId} />
+          <TasksContent
+            issues={issues}
+            projectId={projectId}
+            progressPercentage={completionRate}
+          />
         )}
         {activeTab === "board" && (
           <BoardContent boards={boards} projectId={projectId} />
@@ -526,11 +535,14 @@ function OverviewContent({
   )
 }
 
-function TasksContent({ issues, projectId }: any) {
+function TasksContent({ issues, projectId, progressPercentage }: any) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">Tasks</h2>
+        <span className="text-sm font-medium text-gray-600">
+          Project complete: {progressPercentage}%
+        </span>
           <Link
             to={`/app/projects/${projectId}/board`}
             className="text-sm text-indigo-600 hover:underline flex items-center gap-1"
@@ -667,6 +679,52 @@ function BoardContent({ boards, projectId }: any) {
 }
 
 function TeamContent({ project, activeWorkspace }: any) {
+  const canManageTeam = ["admin", "manager"].includes(
+    activeWorkspace?.current_user_role || ""
+  )
+  const [team, setTeam] = useState<ProjectTeamMember[]>([])
+  const [workspaceMembers, setWorkspaceMembers] = useState<Membership[]>([])
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!activeWorkspace || !project?.id) return
+    setLoading(true)
+    const teamRequest = projectsApi.members(project.id)
+    const membersRequest = canManageTeam
+      ? workspacesApi.members(activeWorkspace.id)
+      : Promise.resolve([] as Membership[])
+    Promise.all([teamRequest, membersRequest])
+      .then(([projectTeam, members]) => {
+        setTeam(projectTeam)
+        setSelectedIds(projectTeam.map((member) => member.id))
+        setWorkspaceMembers(members)
+      })
+      .catch((err: any) => {
+        toast.error(err.response?.data?.detail || "Failed to load project team")
+      })
+      .finally(() => setLoading(false))
+  }, [activeWorkspace, canManageTeam, project?.id])
+
+  const saveTeam = async () => {
+    setSaving(true)
+    try {
+      const updatedTeam = await projectsApi.updateMembers(project.id, selectedIds)
+      setTeam(updatedTeam)
+      setSelectedIds(updatedTeam.map((member) => member.id))
+      toast.success("Project team updated")
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.member_ids ||
+          err.response?.data?.detail ||
+          "Failed to update project team"
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-bold">Project Team</h2>
@@ -708,6 +766,71 @@ function TeamContent({ project, activeWorkspace }: any) {
             )}
           </div>
         </div>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Team members</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Only project team members can be assigned its tasks.
+            </p>
+          </div>
+          {canManageTeam && (
+            <button
+              type="button"
+              onClick={saveTeam}
+              disabled={saving || loading}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save team"}
+            </button>
+          )}
+        </div>
+        {loading ? (
+          <p className="py-4 text-sm text-gray-500">Loading project team...</p>
+        ) : canManageTeam ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {workspaceMembers.map((member) => (
+              <label key={member.user} className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(member.user)}
+                  onChange={() =>
+                    setSelectedIds((ids) =>
+                      ids.includes(member.user)
+                        ? ids.filter((id) => id !== member.user)
+                        : [...ids, member.user]
+                    )
+                  }
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                />
+                <span>
+                  <span className="block font-medium text-gray-800">{member.user_email}</span>
+                  <span className="text-xs text-gray-500">{member.role}</span>
+                </span>
+              </label>
+            ))}
+            {workspaceMembers.length === 0 && (
+              <p className="text-sm text-gray-500">No workspace members available.</p>
+            )}
+          </div>
+        ) : team.length ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {team.map((member) => (
+              <div key={member.id} className="rounded-lg border border-gray-200 p-3">
+                <p className="text-sm font-medium text-gray-800">
+                  {member.full_name || member.email}
+                </p>
+                <p className="text-xs text-gray-500">{member.email}</p>
+                {member.role && (
+                  <p className="mt-1 text-xs capitalize text-gray-500">{member.role}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">No team members have been added yet.</p>
+        )}
       </div>
     </div>
   )

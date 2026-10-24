@@ -53,10 +53,33 @@ Shared-schema, `workspace_id` on every entity. Requests resolve the active works
 
 | Role | Can |
 |------|-----|
-| Admin | Full workspace control: manage members, plans, billing, delete workspace |
-| Manager | Create/update projects, boards, sprints, issues; manage members (non-admin) |
+| Admin | Full workspace control: manage members, plans, billing, delete workspace; create projects and manage project teams |
+| Manager | Create/update projects, manage project teams, assign tasks to project team members; manage boards, sprints, and issues |
 | Member | Create/update issues, comment, attach files, drag-and-drop on Kanban |
 | Viewer | Read-only access |
+
+### Member accounts
+There is no public sign-up. A workspace **admin** creates the account from
+**Settings → Members → Create member account**, supplying the person's email and
+role. The account is created with a generated temporary password, and the user
+receives an email containing their login credentials. On first sign-in they are
+forced to **Set a new password** before they can use the workspace. Members
+added this way show as *Pending first sign-in* until they do.
+
+Administrators are responsible for the people in their workspace, so only an
+admin can create accounts — managers and members cannot.
+
+### Project onboarding
+
+Workspace admins and managers create projects from **Projects → New project**, where
+they can set the project details, manager, dates, priority, and initial project team.
+Project creation also provisions the project's default board, reusing the workspace
+workflow or creating the default statuses when the workspace has none.
+The project team can be changed from the project **Team** tab; task assignees must
+be non-viewer workspace members on that project team. Workspace admins/managers
+and the project's assigned manager can assign or change task assignees. Project
+completion percentage is calculated from completed tasks and shown on the project
+overview and project list.
 
 ### Billing entitlements
 
@@ -131,12 +154,13 @@ Auth (`Token` authentication, header `Authorization: Token <token>`):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register/` | Register user |
+| POST | `/api/auth/register/` | Disabled (403) — accounts are admin-provisioned |
 | POST | `/api/auth/login/` | Login (returns token) |
 | GET | `/api/auth/me/` | Current user |
+| POST | `/api/auth/change-password/` | Change password (clears `must_change_password`) |
 | GET/POST | `/api/tenants/workspaces/` | List/create workspaces |
 | GET/PUT/DELETE | `/api/tenants/workspaces/{id}/` | Workspace detail |
-| GET/POST | `/api/tenants/workspaces/{id}/members/` | List/add members |
+| GET/POST | `/api/tenants/workspaces/{id}/members/` | List members / create account (admin only) |
 | PATCH/DELETE | `/api/tenants/workspaces/{id}/members/{mid}/` | Update role / remove member |
 
 Projects & Boards:

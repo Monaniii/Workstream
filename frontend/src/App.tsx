@@ -2,9 +2,10 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { useAuth } from "./context/AuthContext"
 import { Shell } from "./layout/Shell"
 import LoginPage from "./pages/LoginPage"
-import RegisterPage from "./pages/RegisterPage"
+import ChangePasswordPage from "./pages/ChangePasswordPage"
 import DashboardPage from "./pages/DashboardPage"
 import ProjectListPage from "./pages/ProjectListPage"
+import ProjectCreatePage from "./pages/ProjectCreatePage"
 import ProjectDetailPage from "./pages/ProjectDetailPage"
 import BoardPage from "./pages/BoardPage"
 import ReportsPage from "./pages/ReportsPage"
@@ -21,6 +22,37 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   if (isLoading) return <div className="p-8 text-center">Loading...</div>
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  // Accounts provisioned by an admin must replace their temporary password first.
+  if (user.must_change_password) return <Navigate to="/change-password" replace />
+  return <>{children}</>
+}
+
+function RequirePasswordChange({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth()
+  if (isLoading) return <div className="p-8 text-center">Loading...</div>
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.must_change_password) return <Navigate to="/app" replace />
+  return <>{children}</>
+}
+
+/** Audit Log is restricted to superusers and workspace admins (mirrors the API). */
+function RequireAuditAccess({ children }: { children: React.ReactNode }) {
+  const { user, activeWorkspace, isLoading } = useAuth()
+  if (isLoading) return <div className="p-8 text-center">Loading...</div>
+  const allowed =
+    Boolean(user?.is_superuser) || activeWorkspace?.current_user_role === "admin"
+  if (!allowed) return <Navigate to="/app" replace />
+  return <>{children}</>
+}
+
+/** Member roster: admins and managers. Onboarding inside the page is admin-only. */
+function RequireMemberRosterAccess({ children }: { children: React.ReactNode }) {
+  const { user, activeWorkspace, isLoading } = useAuth()
+  if (isLoading) return <div className="p-8 text-center">Loading...</div>
+  const allowed =
+    Boolean(user?.is_superuser) ||
+    ["admin", "manager"].includes(activeWorkspace?.current_user_role || "")
+  if (!allowed) return <Navigate to="/app" replace />
   return <>{children}</>
 }
 
@@ -28,7 +60,14 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/change-password"
+        element={
+          <RequirePasswordChange>
+            <ChangePasswordPage />
+          </RequirePasswordChange>
+        }
+      />
       <Route
         path="/app"
         element={
@@ -39,7 +78,7 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="projects" element={<ProjectListPage />} />
-        <Route path="projects/new" element={<ProjectListPage />} />
+        <Route path="projects/new" element={<ProjectCreatePage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="projects/:projectId/board" element={<BoardPage />} />
         <Route path="reports" element={<ReportsPage />} />
@@ -47,9 +86,23 @@ export default function App() {
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings/general" element={<SettingsGeneralPage />} />
-        <Route path="settings/members" element={<SettingsMembersPage />} />
+        <Route
+          path="settings/members"
+          element={
+            <RequireMemberRosterAccess>
+              <SettingsMembersPage />
+            </RequireMemberRosterAccess>
+          }
+        />
         <Route path="billing" element={<BillingPage />} />
-        <Route path="audit" element={<AuditLogPage />} />
+        <Route
+          path="audit"
+          element={
+            <RequireAuditAccess>
+              <AuditLogPage />
+            </RequireAuditAccess>
+          }
+        />
       </Route>
       <Route path="/" element={<Navigate to="/app" replace />} />
     </Routes>

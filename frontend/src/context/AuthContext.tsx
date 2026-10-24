@@ -5,9 +5,12 @@ export interface User {
   id: number
   email: string
   username: string
+  first_name?: string
+  last_name?: string
   avatar_url: string
   is_staff: boolean
   is_superuser: boolean
+  must_change_password?: boolean
 }
 
 export interface Workspace {
@@ -16,6 +19,7 @@ export interface Workspace {
   slug: string
   plan: string
   member_count?: number
+  current_user_role?: "admin" | "manager" | "member" | "viewer" | null
 }
 
 interface AuthContextType {
@@ -24,8 +28,8 @@ interface AuthContextType {
   workspaces: Workspace[]
   activeWorkspace: Workspace | null
   login: (email: string, password: string) => Promise<void>
-  register: (data: Record<string, unknown>) => Promise<void>
   logout: () => void
+  setUser: (user: User | null) => void
   setActiveWorkspace: (slug: string | null) => void
   fetchWorkspaces: () => Promise<void>
   isLoading: boolean
@@ -96,17 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchWorkspaces()
   }
 
-  const register = async (data: Record<string, unknown>) => {
-    const res = await axios.post(`${base}/auth/register/`, data)
-    setToken(res.data.token)
-    localStorage.setItem("token", res.data.token)
-    const me = await axios.get(`${base}/auth/me/`, {
-      headers: { Authorization: `Token ${res.data.token}` },
-    })
-    setUser(me.data)
-    await fetchWorkspaces()
-  }
-
   const logout = () => {
     setUser(null)
     setToken(null)
@@ -131,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user, token, workspaces, activeWorkspace,
-    login, register, logout, setActiveWorkspace, fetchWorkspaces, isLoading,
+    login, logout, setUser, setActiveWorkspace, fetchWorkspaces, isLoading,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

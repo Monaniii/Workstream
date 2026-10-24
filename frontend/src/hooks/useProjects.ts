@@ -1,16 +1,27 @@
 import { useState, useCallback, useEffect } from "react"
 import { projectsApi, Project } from "../services"
+import { useAuth } from "../context/AuthContext"
 
 export function useProjects() {
+  const { activeWorkspace } = useAuth()
+  const workspaceId = activeWorkspace?.id
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!workspaceId) {
+      setProjects([])
+      setError(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const data = await projectsApi.list()
+      const data = await projectsApi.list({
+        workspace: String(workspaceId),
+      })
       const items = Array.isArray(data) ? data : data?.results ?? []
       setProjects(items)
     } catch (err: any) {
@@ -18,7 +29,7 @@ export function useProjects() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     load()

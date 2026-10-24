@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { useAuth } from "../context/AuthContext"
 import { useProjects } from "../hooks/useProjects"
-import { Link, useNavigate } from "react-router-dom"
-import { Plus, Briefcase, ArrowRight, Layout } from "lucide-react"
-import toast from "react-hot-toast"
+import { Link } from "react-router-dom"
+import { Plus, Briefcase, Layout } from "lucide-react"
 
 const STATUS_COLORS: Record<string, string> = {
+  planned: "bg-blue-100 text-blue-700",
   active: "bg-green-100 text-green-700",
   planning: "bg-blue-100 text-blue-700",
   on_hold: "bg-amber-100 text-amber-700",
@@ -15,10 +15,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ProjectListPage() {
   const { activeWorkspace, setActiveWorkspace, workspaces } = useAuth()
-  const { projects, loading, error, createProject } = useProjects()
-  const [newProject, setNewProject] = useState({ name: "", key: "" })
+  const { projects, loading, error } = useProjects()
   const [tab, setTab] = useState("all")
-  const navigate = useNavigate()
 
   if (!activeWorkspace) {
     return (
@@ -48,21 +46,9 @@ export default function ProjectListPage() {
     )
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      await createProject({
-        workspace: activeWorkspace.id,
-        name: newProject.name,
-        key: newProject.key.toUpperCase(),
-      })
-      setNewProject({ name: "", key: "" })
-      toast.success("Project created")
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || "Failed to create project")
-    }
-  }
-
+  const canManageProjects = ["admin", "manager"].includes(
+    activeWorkspace.current_user_role || ""
+  )
   const filtered = projects.filter((p) => {
     if (tab === "all") return true
     return p.status === tab
@@ -109,15 +95,22 @@ export default function ProjectListPage() {
             </button>
           ))}
         </div>
-        <Link
-          to="/app/projects/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" /> New project
-        </Link>
+        {canManageProjects && (
+          <Link
+            to="/app/projects/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> New project
+          </Link>
+        )}
       </div>
 
       {loading && <div className="text-center py-16 text-slate-400 text-sm">Loading projects...</div>}
+      {error && (
+        <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {!loading && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16">
@@ -126,14 +119,18 @@ export default function ProjectListPage() {
           </div>
           <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
           <p className="text-slate-500 text-sm mb-6">
-            Create your first project to get started.
+            {canManageProjects
+              ? "Create your first project to get started."
+              : "There are no projects in this workspace yet."}
           </p>
-          <Link
-            to="/app/projects/new"
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
-          >
-            Create project
-          </Link>
+          {canManageProjects && (
+            <Link
+              to="/app/projects/new"
+              className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+            >
+              Create project
+            </Link>
+          )}
         </div>
       )}
 
@@ -172,7 +169,12 @@ export default function ProjectListPage() {
                           {p.key.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{p.name}</p>
+                          <Link
+                            to={`/app/projects/${p.id}`}
+                            className="text-sm font-medium text-slate-900 hover:text-blue-700"
+                          >
+                            {p.name}
+                          </Link>
                           <p className="text-[10px] text-slate-500">{p.description || "No description"}</p>
                         </div>
                       </div>
@@ -186,21 +188,24 @@ export default function ProjectListPage() {
                       <div className="w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-600"
-                          style={{ width: `${Math.min(Math.random() * 100, 100)}%` }}
+                          style={{ width: `${p.progress_percentage || 0}%` }}
                         />
                       </div>
                       <p className="text-[10px] font-medium text-slate-500 text-right mt-1">
-                        {(Math.min(Math.random() * 100, 100)).toFixed(0)}%
+                        {(p.progress_percentage || 0).toFixed(0)}%
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <p className="text-sm text-slate-900">{p.key}-{p.id}</p>
+                      <p className="text-sm text-slate-900">{p.target_date || "Not set"}</p>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold">
-                          {p.key.charAt(0)}
+                          {(p.owner_name || p.owner_email || p.key).charAt(0).toUpperCase()}
                         </div>
+                        <span className="text-sm text-slate-700">
+                          {p.owner_name || p.owner_email || "Unassigned"}
+                        </span>
                       </div>
                     </td>
                   </tr>

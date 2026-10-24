@@ -15,6 +15,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import AuditEvent
 from .serializers import AuditEventSerializer
 from .permissions import IsAuditAdministrator
+from tenants.models import WorkspaceMember, MembershipRole
 
 
 class AuditEventViewSet(viewsets.ReadOnlyModelViewSet):
@@ -70,15 +71,21 @@ class AuditEventViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = AuditEvent.objects.all()
+        tenant = getattr(self.request, "tenant", None)
+        # Audit events are only ever served inside the active workspace. Even
+        # superusers read through the tenant header, so this module can never
+        # become a cross-workspace data leak.
+        if not tenant:
+            return AuditEvent.objects.none()
+        qs = AuditEvent.objects.filter(workspace=tenant)
         if getattr(user, "is_superuser", False):
-            pass  # platform-wide
+            pass  # superuser may see every event in this workspace
+        elif WorkspaceMember.objects.filter(
+            user=user, workspace=tenant, role=MembershipRole.ADMIN
+        ).exists():
+            pass  # workspace admin: everything in their workspace
         else:
-            tenant = getattr(self.request, "tenant", None)
-            if tenant:
-                qs = qs.filter(workspace=tenant)
-            else:
-                return qs.none()
+            return AuditEvent.objects.none()
 
         start = self.request.query_params.get("start_date")
         end = self.request.query_params.get("end_date")

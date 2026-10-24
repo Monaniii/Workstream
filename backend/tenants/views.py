@@ -10,8 +10,10 @@ from .serializers import (
     UserSerializer,
     RegisterSerializer,
     LoginSerializer,
+    ChangePasswordSerializer,
     WorkspaceSerializer,
     WorkspaceMemberSerializer,
+    WorkspaceMemberProvisionSerializer,
     WorkspaceMemberRoleSerializer,
 )
 from .permissions import (
@@ -22,6 +24,14 @@ from .permissions import (
 )
 from .entitlements import check_member_limit
 from audit.services import AuditService
+from .emails import (
+    send_password_changed_email,
+    send_provisioned_account_email,
+)
+import logging
+import secrets
+import string
+logger = logging.getLogger(__name__)
 
 
 def _current_tenant(request):
@@ -44,9 +54,27 @@ def _actor_snapshot(user):
 
 
 class RegisterView(generics.CreateAPIView):
+    """Public self-registration is disabled.
+
+    Workspace accounts are provisioned by a workspace admin, who creates the
+    user and emails them a temporary password. Self-signup would users
+    outside any workspace, so it is not offered.
+    """
+
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        return Response(
+            {
+                "detail": (
+                    "Self-registration is disabled. Ask your workspace admin to "
+                    "create an account for you."
+                )
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -172,6 +200,51 @@ class MeView(generics.RetrieveAPIView):
     def get_object(self):
         return self.request.user
 
+class ChangePasswordView(generics.GenericAPIView):
+    """Lets a signed-in user replace their password (first login or later)."""
+
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        was_first_login = user.must_change_password
+        user.must_change_password = False
+        user.save(update_fields=["password", "must_change_password"])
+        # Invalidate any other existing tokens for this account.
+        Token.objects.filter(user=user).delete()
+        token = Token.objects.create(user=user)
+        try:
+            send_password_changed_email(user)
+        except Exception:
+            pass  # Password is already changed; email failure must not block.
+        ctx = _audit_context(request)
+        AuditService.log_event(
+            actor=user,
+            workspace=None,
+            action="update",
+            module="auth",
+            resource_type="user",
+            resource_id=user.id,
+            resource_name=user.email,
+            description=(
+                "Password set on first sign-in"
+                if was_first_login
+                else "Password changed"
+            ),
+            outcome="success",
+            request_id=ctx.get("request_id", ""),
+            http_method=request.method,
+            route=ctx.get("route", ""),
+            ip_address=ctx.get("ip_address"),
+            user_agent=ctx.get("user_agent", ""),
+            session_key=getattr(request.session, "session_key", "") or "",
+        )
+        return Response({"token": token.key, "user": UserSerializer(user).data})
+
 
 class WorkspaceListCreateView(generics.ListCreateAPIView):
     serializer_class = WorkspaceSerializer
@@ -261,36 +334,118 @@ class WorkspaceDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class WorkspaceMemberListView(generics.ListCreateAPIView):
+    """List workspace members, or provision a brand-new account.
+
+    Members never sign themselves up: an admin supplies the email and role,
+    the account is created here, and the new user receives their login
+    credentials by email. They must set a new password on first sign-in.
+
+    Managers may GET the roster (they need it to staff their own project
+    teams) but may not POST: onboarding users is admin-only.
+    """
+
     serializer_class = WorkspaceMemberSerializer
     permission_classes = [TenantAccessPermission, IsWorkspaceManager]
 
+    def get_permissions(self):
+        # POST provisions a new account, so it is tighter than GET. Managers
+        # may read the roster (to staff their own project teams) but must not
+        # onboard users into the system.
+        if self.request.method == "POST":
+            permission_classes = [TenantAccessPermission, IsWorkspaceAdmin]
+        else:
+            permission_classes = self.permission_classes
+        return [permission() for permission in permission_classes]
+
     def get_queryset(self):
         tenant = _current_tenant(self.request)
-        return WorkspaceMember.objects.filter(workspace=tenant)
+        qs = WorkspaceMember.objects.filter(workspace=tenant).select_related("user")
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+        role = (
+            WorkspaceMember.objects.filter(workspace=tenant, user=user)
+            .values_list("role", flat=True)
+            .first()
+        )
+        if role != MembershipRole.ADMIN:
+            # Managers only see people on the projects they manage (plus
+            # themselves and whoever those projects belong to), never the
+            # whole workspace roster.
+            from django.db.models import Q
+            from projects.models import Project
+            person_ids = Project.objects.filter(
+                workspace=tenant, manager=user
+            ).values_list("team_members__id", flat=True)
+            qs = qs.filter(Q(user_id__in=person_ids) | Q(user_id=user.id))
+        return qs
 
-    def perform_create(self, serializer):
+    @staticmethod
+    def _generate_password(length=14):
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        return "".join(secrets.choice(alphabet) for _ in range(length))
+
+    def create(self, request, *args, **kwargs):
         tenant = _current_tenant(self.request)
+        serializer = WorkspaceMemberProvisionSerializer(
+            data=request.data, context={"workspace": tenant, "request": request}
+        )
+        serializer.is_valid(raise_exception=True)
         check_member_limit(tenant)
-        member = serializer.save(workspace=tenant)
-        ctx = _audit_context(self.request)
+
+        email = serializer.validated_data["email"]
+        role = serializer.validated_data["role"]
+        first_name = serializer.validated_data.get("first_name", "")
+        last_name = serializer.validated_data.get("last_name", "")
+        temporary_password = self._generate_password()
+
+        user = User.objects.create_user(
+            email=email,
+            username=email,
+            password=temporary_password,
+            first_name=first_name,
+            last_name=last_name,
+            must_change_password=True,
+        )
+        member = WorkspaceMember.objects.create(
+            user=user, workspace=tenant, role=role
+        )
+
+        email_sent = True
+        try:
+            send_provisioned_account_email(
+                user=user,
+                workspace=tenant,
+                role=role,
+                temporary_password=temporary_password,
+                invited_by=request.user,
+            )
+        except Exception:
+            email_sent = False
+            logger.exception("Could not email credentials to %s", user.email)
+        ctx = _audit_context(request)
         AuditService.log_event(
-            actor=self.request.user,
+            actor=request.user,
             workspace=tenant,
             action="membership_add",
             module="teams",
             resource_type="workspace_member",
             resource_id=member.id,
-            resource_name=member.user.email,
-            description=f"Member added: {member.user.email} as {member.role}",
+            resource_name=user.email,
+            description=f"Account created and added as {role}: {user.email}",
             outcome="success",
-            changed_fields={"role": {"from": None, "to": member.role}},
+            changed_fields={"role": {"from": None, "to": role}},
             request_id=ctx.get("request_id", ""),
-            http_method=self.request.method,
+            http_method=request.method,
             route=ctx.get("route", ""),
             ip_address=ctx.get("ip_address"),
             user_agent=ctx.get("user_agent", ""),
-            session_key=getattr(self.request.session, "session_key", "") or "",
+            session_key=getattr(request.session, "session_key", "") or "",
         )
+
+        data = WorkspaceMemberSerializer(member).data
+        data["email_sent"] = email_sent
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class WorkspaceMemberDetailView(generics.RetrieveUpdateDestroyAPIView):
