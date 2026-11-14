@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { Link } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { notificationsApi } from "../services"
 import { Bell, RefreshCw, CheckCircle2, X } from "lucide-react"
@@ -55,7 +56,7 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-ink-muted text-sm">
             Workspace notifications, mentions, and updates
           </p>
         </div>
@@ -63,14 +64,14 @@ export default function NotificationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={markAllRead}
-              className="px-3 py-1.5 text-sm border rounded text-indigo-600 border-indigo-600 hover:bg-indigo-50 transition"
+              className="px-3 py-1.5 text-sm border rounded text-indigo-600 dark:text-indigo-400 border-indigo-600 hover:bg-indigo-500/10 transition"
             >
               Mark all as read
             </button>
           )}
           <button
             onClick={loadNotifications}
-            className="p-2 text-gray-500 hover:text-indigo-600 transition"
+            className="p-2 text-ink-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition"
             disabled={loading}
           >
             <RefreshCw className="w-4 h-4" />
@@ -87,12 +88,12 @@ export default function NotificationsPage() {
       {!loading && (
         <div className="space-y-4">
           {notifications.length === 0 ? (
-            <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-              <Bell className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <div className="text-center py-16 bg-surface rounded-xl border border-line">
+              <Bell className="w-12 h-12 text-ink-subtle mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-ink mb-2">
                 No notifications
               </h3>
-              <p className="text-gray-500">
+              <p className="text-ink-muted">
                 You&apos;re all caught up. New notifications will appear here.
               </p>
             </div>
@@ -101,8 +102,8 @@ export default function NotificationsPage() {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`bg-white rounded-xl border border-gray-200 p-4 transition ${
-                    !n.read ? "bg-indigo-50 border-indigo-100" : ""
+                  className={`bg-surface rounded-xl border border-line p-4 transition ${
+                    !n.read ? "bg-indigo-500/10 border-indigo-100" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -110,7 +111,7 @@ export default function NotificationsPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <span
                           className={`text-xs font-semibold uppercase ${
-                            n.type?.includes("issue") ? "text-indigo-600" : "text-gray-500"
+                            n.type?.includes("issue") ? "text-indigo-600 dark:text-indigo-400" : "text-ink-muted"
                           }`}
                         >
                           {n.type?.split(".").pop() || "notification"}
@@ -119,17 +120,17 @@ export default function NotificationsPage() {
                           <span className="w-2 h-2 bg-indigo-600 rounded-full" />
                         )}
                       </div>
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                      <h3 className="text-sm font-semibold text-ink mb-1">
                         {n.title}
                       </h3>
-                      <p className="text-sm text-gray-600">{n.message}</p>
-                      <p className="text-xs text-gray-400 mt-2">
+                      <p className="text-sm text-ink-muted">{n.message}</p>
+                      <p className="text-xs text-ink-subtle mt-2">
                         {new Date(n.created_at).toLocaleString()}
                       </p>
                     </div>
                     <button
                       onClick={() => markRead(n.id)}
-                      className="p-1.5 text-gray-400 hover:text-indigo-600 transition"
+                      className="p-1.5 text-ink-subtle hover:text-indigo-600 dark:hover:text-indigo-400 transition"
                     >
                       {!n.read ? (
                         <CheckCircle2 className="w-4 h-4" />
@@ -139,12 +140,24 @@ export default function NotificationsPage() {
                     </button>
                   </div>
                   {n.link && (
-                    <a
-                      href={n.link}
-                      className="mt-3 inline-block text-sm text-indigo-600 hover:underline"
-                    >
-                      View details →
-                    </a>
+                    n.link.startsWith("/") ? (
+                      <Link
+                        to={n.link}
+                        onClick={() => {
+                          if (!n.read) void markRead(n.id)
+                        }}
+                        className="mt-3 inline-block text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        View details →
+                      </Link>
+                    ) : (
+                      <a
+                        href={n.link}
+                        className="mt-3 inline-block text-sm text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        View details →
+                      </a>
+                    )
                   )}
                 </div>
               ))}

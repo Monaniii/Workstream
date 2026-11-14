@@ -51,14 +51,14 @@ export default function BillingPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Billing &amp; Subscription</h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-ink-muted text-sm">
             Manage your workspace plan, invoices, and payment details
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadBilling}
-            className="p-2 text-gray-500 hover:text-indigo-600 transition"
+            className="p-2 text-ink-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition"
             disabled={loading}
           >
             <RefreshCw className="w-4 h-4" />
@@ -73,15 +73,15 @@ export default function BillingPage() {
       ) : (
         <div className="space-y-8">
           {/* Current Subscription */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-surface rounded-xl border border-line p-6">
             <div className="flex items-center gap-3 mb-6">
-              <CreditCard className="w-5 h-5 text-indigo-600" />
+              <CreditCard className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <h2 className="text-lg font-semibold">Current Plan</h2>
             </div>
             {subscription ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase">
+                  <p className="text-xs font-semibold text-ink-subtle uppercase">
                     Plan
                   </p>
                   <h3 className="text-xl font-bold">
@@ -89,28 +89,28 @@ export default function BillingPage() {
                   </h3>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase">
+                  <p className="text-xs font-semibold text-ink-subtle uppercase">
                     Status
                   </p>
                   <span
                     className={`px-2 py-1 rounded text-xs font-medium ${
                       subscription.status === "active"
-                        ? "bg-green-100 text-green-700"
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                         : subscription.status === "past_due"
-                        ? "bg-amber-100 text-amber-700"
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                         : subscription.status === "canceled"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-gray-100 text-gray-600"
+                        ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                        : "bg-surface-inset text-ink-muted"
                     }`}
                   >
                     {subscription.status}
                   </span>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase">
+                  <p className="text-xs font-semibold text-ink-subtle uppercase">
                     Period End
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-ink-muted">
                     {subscription.current_period_end
                       ? new Date(
                           subscription.current_period_end
@@ -120,20 +120,20 @@ export default function BillingPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-ink-muted">
                 No active subscription found.
               </div>
             )}
           </div>
 
           {/* Plans */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-surface rounded-xl border border-line p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold">Available Plans</h2>
               {subscription && (
                 <button
                   onClick={billingApi.portal}
-                  className="text-sm text-indigo-600 hover:underline flex items-center gap-1"
+                  className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                 >
                   <FileText className="w-3 h-3" /> Manage via Stripe Portal
                 </button>
@@ -145,18 +145,18 @@ export default function BillingPage() {
                   key={plan.id}
                   className={`border rounded-xl p-6 transition ${
                     subscription?.plan?.id === plan.id
-                      ? "border-indigo-200 bg-indigo-50"
-                      : "border-gray-200 hover:border-indigo-300"
+                      ? "border-indigo-200 bg-indigo-500/10"
+                      : "border-line hover:border-indigo-300"
                   }`}
                 >
                   <h3 className="text-lg font-bold">{plan.name}</h3>
-                  <p className="text-xl font-bold text-gray-900 mt-2">
+                  <p className="text-xl font-bold text-ink mt-2">
                     ${(plan.amount / 100).toFixed(2)}/{plan.interval}
                   </p>
-                  <ul className="mt-4 space-y-2 text-sm text-gray-600">
+                  <ul className="mt-4 space-y-2 text-sm text-ink-muted">
                     {(plan.features || []).map((f: string, i: number) => (
                       <li key={i} className="flex items-center gap-2">
-                        <span className="text-green-600">✓</span> {f}
+                        <span className="text-emerald-600 dark:text-emerald-400">✓</span> {f}
                       </li>
                     ))}
                   </ul>
@@ -170,7 +170,7 @@ export default function BillingPage() {
                       className={`w-full py-2 rounded font-medium transition ${
                         !plan.stripe_price_id ||
                         subscription?.plan?.id === plan.id
-                          ? "bg-gray-200 text-gray-500"
+                          ? "bg-surface-inset text-ink-muted"
                           : "bg-indigo-600 text-white hover:bg-indigo-700"
                       }`}
                     >
@@ -185,27 +185,27 @@ export default function BillingPage() {
           </div>
 
           {/* Invoices */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-surface rounded-xl border border-line p-6">
             <h2 className="text-lg font-semibold mb-6">Invoices</h2>
             {invoices.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-ink-muted">
                 No invoices found.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                    <tr className="border-b border-line">
+                      <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                         Invoice
                       </th>
-                      <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                      <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                         Amount
                       </th>
-                      <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                      <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                         Status
                       </th>
-                      <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                      <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                         Date
                       </th>
                     </tr>
@@ -214,28 +214,28 @@ export default function BillingPage() {
                     {invoices.map((inv) => (
                       <tr
                         key={inv.id}
-                        className="border-b border-gray-50 hover:bg-gray-50 transition"
+                        className="border-b border-line hover:bg-surface-muted transition"
                       >
-                        <td className="py-3 text-sm text-gray-900">
+                        <td className="py-3 text-sm text-ink">
                           {inv.stripe_invoice_id || inv.id}
                         </td>
-                        <td className="py-3 text-sm text-gray-900 font-medium">
+                        <td className="py-3 text-sm text-ink font-medium">
                           ${(inv.amount / 100).toFixed(2)} {inv.currency.toUpperCase()}
                         </td>
                         <td className="py-3 text-sm">
                           <span
                             className={`px-2 py-1 rounded text-xs font-medium ${
                               inv.status === "paid"
-                                ? "bg-green-100 text-green-700"
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                                 : inv.status === "open"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-gray-100 text-gray-600"
+                                ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                                : "bg-surface-inset text-ink-muted"
                             }`}
                           >
                             {inv.status}
                           </span>
                         </td>
-                        <td className="py-3 text-sm text-gray-500">
+                        <td className="py-3 text-sm text-ink-muted">
                           {inv.created_at
                             ? new Date(inv.created_at).toLocaleDateString()
                             : "—"}

@@ -91,6 +91,10 @@ export interface Issue {
   project_name: string
   board: number | null
   sprint: number | null
+  parent_issue?: number | null
+  subtasks?: number[]
+  blocked_by?: number[]
+  comment_count?: number
   key: string
   title: string
   summary: string
@@ -107,6 +111,10 @@ export interface Issue {
   reporter_email: string
   column_id: string
   position: number
+  due_date?: string | null
+  closed_at?: string | null
+  is_closed?: boolean
+  is_overdue?: boolean
 }
 
 export interface Comment {
@@ -125,6 +133,13 @@ export interface Attachment {
   file_url: string
   content_type: string
   size: number
+}
+
+export interface IssuePage {
+  count: number
+  next: string | null
+  previous: string | null
+  results: Issue[]
 }
 
 const axiosInstance = axios.create({ baseURL: API_BASE })
@@ -229,6 +244,12 @@ export const issuesApi = {
   get: (id: number) =>
     axiosInstance.get<Issue>(`/issues/${id}/`).then((r) => r.data),
   remove: (id: number) => axiosInstance.delete(`/issues/${id}/`),
+  close: (id: number) =>
+    axiosInstance.post<Issue>(`/issues/${id}/close/`, {}).then((r) => r.data),
+  reopen: (id: number) =>
+    axiosInstance.post<Issue>(`/issues/${id}/reopen/`, {}).then((r) => r.data),
+  myWork: (params?: Record<string, string>) =>
+    axiosRaw.get<IssuePage>("/issues/my-work/", { params }).then((r) => r.data),
 }
 
 export const commentsApi = {
@@ -264,7 +285,16 @@ export const reportsApi = {
     axiosInstance.get<any>("/reports/team/", { params }).then((r) => r.data),
   activity: (params?: Record<string, string>) =>
     axiosInstance.get<any>("/reports/activity/", { params }).then((r) => r.data),
-  exportCsv: (data: { report_type: string; start_date?: string; end_date?: string }) =>
+  projectAnalytics: (projectId: number) =>
+    axiosInstance
+      .get<any>("/reports/project-analytics/", { params: { project: String(projectId) } })
+      .then((r) => r.data),
+  exportCsv: (data: {
+    report_type: string
+    start_date?: string
+    end_date?: string
+    period?: string
+  }) =>
     axiosInstance
       .post<Blob>("/reports/export/csv/", data, {
         responseType: "blob",
@@ -299,8 +329,8 @@ export const webhooksApi = {
     axiosInstance.get<any[]>("/webhooks/deliveries/", { params: { endpoint: endpointId } }).then((r) => r.data),
 }
 
-// Raw axios instance (no paginated-response unwrapping) for the audit API,
-// which returns DRF-style paginated objects {count, next, previous, results}.
+// Raw axios instance (no paginated-response unwrapping) for APIs whose views
+// need pagination metadata.
 const axiosRaw = axios.create({ baseURL: API_BASE })
 
 axiosRaw.interceptors.request.use((config) => {

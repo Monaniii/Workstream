@@ -3,7 +3,7 @@ flowchart TD
         UI[React Frontend<br/>Vite • Tailwind • @dnd-kit<br/>http://localhost:5173]
     end
 
-    subgraph API["API Layer (Django + DRF, port 8000)"]
+    subgraph API["API Layer (Django + DRF, port 6000)"]
         GW[Gunicorn / ASGI]
         MW[TenantMiddleware<br/>X-Tenant-Slug header]
         AUTH[Token Authentication]

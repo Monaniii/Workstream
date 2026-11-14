@@ -16,6 +16,8 @@ import SettingsGeneralPage from "./pages/SettingsGeneralPage"
 import SettingsMembersPage from "./pages/SettingsMembersPage"
 import BillingPage from "./pages/BillingPage"
 import AuditLogPage from "./pages/AuditLogPage"
+import SearchPage from "./pages/SearchPage"
+import MyWorkPage from "./pages/MyWorkPage"
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
@@ -42,6 +44,16 @@ function RequireAuditAccess({ children }: { children: React.ReactNode }) {
   const allowed =
     Boolean(user?.is_superuser) || activeWorkspace?.current_user_role === "admin"
   if (!allowed) return <Navigate to="/app" replace />
+  return <>{children}</>
+}
+
+/** Billing is limited to workspace admins, matching the billing API. */
+function RequireBillingAccess({ children }: { children: React.ReactNode }) {
+  const { activeWorkspace, isLoading } = useAuth()
+  if (isLoading) return <div className="p-8 text-center">Loading...</div>
+  if (activeWorkspace?.current_user_role !== "admin") {
+    return <Navigate to="/app" replace />
+  }
   return <>{children}</>
 }
 
@@ -77,6 +89,8 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="my-work" element={<MyWorkPage />} />
+        <Route path="search" element={<SearchPage />} />
         <Route path="projects" element={<ProjectListPage />} />
         <Route path="projects/new" element={<ProjectCreatePage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
@@ -94,7 +108,14 @@ export default function App() {
             </RequireMemberRosterAccess>
           }
         />
-        <Route path="billing" element={<BillingPage />} />
+        <Route
+          path="billing"
+          element={
+            <RequireBillingAccess>
+              <BillingPage />
+            </RequireBillingAccess>
+          }
+        />
         <Route
           path="audit"
           element={

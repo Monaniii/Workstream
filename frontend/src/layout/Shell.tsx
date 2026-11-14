@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
+import { useTheme } from "../context/ThemeContext"
 import {
   Menu,
   X,
@@ -17,10 +18,14 @@ import {
   ClipboardList,
   Calendar,
   Shield,
+  Moon,
+  Sun,
+  CheckSquare,
 } from "lucide-react"
 
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/app", icon: Layout },
+  { name: "My Work", href: "/app/my-work", icon: CheckSquare },
   { name: "Projects", href: "/app/projects", icon: Briefcase },
   { name: "Reports", href: "/app/reports", icon: BarChart3 },
   { name: "Activity", href: "/app/activity", icon: ClipboardList },
@@ -30,15 +35,34 @@ const NAV_ITEMS = [
 
 const SETTINGS_ITEMS = [
   { name: "Workspace", href: "/app/settings/general", icon: Settings },
-  { name: "Billing", href: "/app/billing", icon: CreditCard },
 ]
 
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell() {
   const { user, activeWorkspace, workspaces, logout, setActiveWorkspace } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchText, setSearchText] = useState("")
+  const searchInput = useRef<HTMLInputElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        searchInput.current?.focus()
+      }
+    }
+    window.addEventListener("keydown", handleShortcut)
+    return () => window.removeEventListener("keydown", handleShortcut)
+  }, [])
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const query = searchText.trim()
+    if (query) navigate(`/app/search?q=${encodeURIComponent(query)}`)
+  }
 
   const handleLogout = () => {
     logout()
@@ -53,10 +77,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const isActive = (path: string) => location.pathname.startsWith(path)
+  const isActive = (path: string) =>
+    path === "/app"
+      ? location.pathname === path
+      : location.pathname === path || location.pathname.startsWith(`${path}/`)
   // Audit Log is restricted to platform superusers and workspace admins.
   const showAudit =
     Boolean(user?.is_superuser) || activeWorkspace?.current_user_role === "admin"
+  const showBilling = activeWorkspace?.current_user_role === "admin"
   // Member roster is visible to admins and managers (managers need it to
   // staff their project teams). Onboarding inside it is admin-only.
   const showMembers = ["admin", "manager"].includes(
@@ -76,7 +104,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-[#FAFAFC] text-[#1F2937] selection:bg-blue-200">
+    <div className="flex h-screen bg-canvas text-ink selection:bg-blue-200 dark:selection:bg-blue-900/60">
       {/* Mobile overlay */}
       {mobileMenuOpen && (
         <div
@@ -87,7 +115,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-full w-64 z-30 transform transition-transform duration-300 ${
+        className={`fixed left-0 top-0 flex h-full w-64 z-30 transform flex-col bg-[#0F172A] transition-transform duration-300 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } md:relative md:translate-x-0`}
       >
@@ -111,7 +139,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <div className="p-5 space-y-6">
+        <div className="p-5 space-y-6 overflow-y-auto">
           <nav className="space-y-1">
             {NAV_ITEMS.map((item) => {
               const active = isActive(item.href)
@@ -121,8 +149,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   to={item.href}
                   className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition ${
                     active
-                      ? "bg-blue-50 text-blue-700 font-medium shadow-sm shadow-blue-100/50 border border-blue-100"
-                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-100/50"
+                      ? "bg-blue-500/15 text-blue-300 font-medium shadow-sm ring-1 ring-blue-400/20"
+                      : "text-ink-subtle hover:text-white hover:bg-surface/5"
                   }`}
                 >
                   <item.icon className="w-5 h-5 shrink-0" />
@@ -132,11 +160,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="border-t border-slate-800/40 pt-5">
+          <div className="border-t border-white/10 pt-5">
             {showMembers && (
               <Link
                 to="/app/settings/members"
-                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-slate-400 hover:text-white hover:bg-slate-800/50`}
+                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-ink-subtle hover:text-white hover:bg-surface/5`}
               >
                 <User className="w-5 h-5 shrink-0" />
                 Members
@@ -146,16 +174,40 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-slate-400 hover:text-white hover:bg-slate-800/50`}
+                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-ink-subtle hover:text-white hover:bg-surface/5`}
               >
                 <item.icon className="w-5 h-5 shrink-0" />
                 {item.name}
               </Link>
             ))}
+            {showBilling && (
+              <Link
+                to="/app/billing"
+                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-ink-subtle hover:text-white hover:bg-surface/5`}
+              >
+                <CreditCard className="w-5 h-5 shrink-0" />
+                Billing
+              </Link>
+            )}
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-ink-subtle hover:text-white hover:bg-surface/5"
+              aria-label={
+                theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+              }
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? (
+                <Sun className="w-5 h-5 shrink-0" />
+              ) : (
+                <Moon className="w-5 h-5 shrink-0" />
+              )}
+              {theme === "dark" ? "Light mode" : "Dark mode"}
+            </button>
             {showAudit && (
               <Link
                 to="/app/audit"
-                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-slate-400 hover:text-white hover:bg-slate-800/50`}
+                className={`flex items-center gap-3.5 px-3 py-3 rounded-xl text-sm transition text-ink-subtle hover:text-white hover:bg-surface/5`}
               >
                 <Shield className="w-5 h-5 shrink-0" />
                 Audit Log
@@ -164,7 +216,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <div className="absolute bottom-0 w-full p-5 border-t border-white/10 bg-[#0F172A]/80 backdrop-blur-md">
+        <div className="w-full shrink-0 p-5 border-t border-white/10 bg-[#0F172A]/80 backdrop-blur-md">
           <div className="flex items-center gap-3 px-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-blue-500/40">
               {initials(user?.username || user?.email)}
@@ -173,13 +225,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <p className="text-xs font-medium text-slate-300 truncate">
                 {user?.email}
               </p>
-              <p className="text-[10px] text-slate-500 truncate">
+              <p className="text-[10px] text-ink-muted truncate">
                 {activeWorkspace?.name ?? "No workspace"}
               </p>
             </div>
             <button
               onClick={handleLogout}
-              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
+              className="p-1.5 text-ink-subtle hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -201,28 +253,43 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="font-bold text-sm truncate text-white">Workstream</span>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate("/app/search")}
+          className="rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white"
+          aria-label="Search tasks and projects"
+        >
+          <Search className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Main content */}
       <div className={`flex-1 flex flex-col overflow-hidden ${sidebarOpen ? "md:ml-64" : ""}`}>
         {/* Top navigation */}
-        <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/60">
+        <header className="sticky top-0 z-20 bg-surface/80 backdrop-blur-md border-b border-line">
           <div className="flex items-center justify-between px-6 py-3">
             <div className="hidden md:flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 text-slate-500 hover:text-slate-900 md:ml-0"
+                className="p-2 text-ink-muted hover:text-ink md:ml-0"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <div className="flex-1 relative max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <form className="flex-1 relative max-w-md" onSubmit={submitSearch}>
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />
                 <input
+                  ref={searchInput}
                   type="text"
-                  placeholder="Search tasks, projects, people..."
-                  className="w-full pl-10 pr-4 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white"
+                  placeholder="Search tasks and projects..."
+                  aria-label="Search tasks and projects"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  className="w-full pl-10 pr-4 py-1.5 text-sm border border-line rounded-lg bg-surface text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
                 />
-              </div>
+                <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 text-[10px] text-ink-subtle">
+                  Ctrl K
+                </kbd>
+              </form>
               {canManageProjects && (
                 <Link
                   to="/app/projects/new"
@@ -235,17 +302,30 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
             <div className="flex items-center gap-3">
               <button
-                className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition relative"
+                onClick={toggleTheme}
+                className="p-2 text-ink-muted hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition"
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark" ? (
+                  <Sun className="w-5 h-5" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
+              </button>
+              <button
+                className="p-2 text-ink-muted hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition relative"
                 onClick={() => navigate("/app/notifications")}
+                aria-label="Open notifications"
+                title="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
               </button>
-              <div className="flex items-center gap-2 pl-4 border-l border-slate-200">
+              <div className="flex items-center gap-2 pl-4 border-l border-line">
                 <div className="hidden md:block text-right">
-                  <p className="text-sm font-medium text-slate-900">{user?.email}</p>
+                  <p className="text-sm font-medium text-ink">{user?.email}</p>
                   {activeWorkspace && (
-                    <p className="text-xs text-slate-500">{activeWorkspace.name}</p>
+                    <p className="text-xs text-ink-muted">{activeWorkspace.name}</p>
                   )}
                 </div>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-blue-500/40">
@@ -256,7 +336,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-[#FAFAFC] p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-canvas p-6 md:p-8">
           <Outlet />
         </main>
       </div>

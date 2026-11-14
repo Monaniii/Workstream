@@ -60,6 +60,19 @@ class Issue(models.Model):
         blank=True,
         related_name="issues",
     )
+    parent_issue = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="subtasks",
+    )
+    blocked_by = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="blocking_issues",
+    )
     key = models.CharField(max_length=30, unique=True)  # e.g. PROJ-42
     summary = models.CharField(max_length=300)
     description = models.TextField(blank=True, default="")
@@ -87,6 +100,19 @@ class Issue(models.Model):
     )
     column_id = models.CharField(max_length=100, blank=True, default="")
     position = models.IntegerField(default=0)
+    due_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Optional deadline. Drives the calendar and overdue reporting.",
+    )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Set when the issue moves to a final status, cleared when it reopens. "
+            "A task is considered closed when its status is final."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -97,10 +123,36 @@ class Issue(models.Model):
             models.Index(fields=["workspace", "board", "column_id", "position"]),
             models.Index(fields=["workspace", "sprint"]),
             models.Index(fields=["key"]),
+            models.Index(fields=["workspace", "due_date"]),
         ]
 
     def __str__(self):
         return f"{self.key}: {self.summary}"
+
+    @property
+    def is_closed(self):
+        """A task is closed once it reaches a final workflow status."""
+        return bool(self.status and self.status.is_final)
+
+    @property
+    def is_overdue(self):
+        """Open, dated, and the deadline has passed."""
+        from django.utils import timezone
+
+        if self.is_closed or not self.due_date:
+            return False
+        return self.due_date < timezone.localdate()
+
+    def save(self, *args, **kwargs):
+        """Keep closed_at in sync with the workflow status."""
+        from django.utils import timezone
+
+        if self.status_id and self.status.is_final:
+            if self.closed_at is None:
+                self.closed_at = timezone.now()
+        else:
+            self.closed_at = None
+        return super().save(*args, **kwargs)
 
 
 class IssueComment(models.Model):

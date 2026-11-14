@@ -99,6 +99,17 @@ class ProjectSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError(
                         {"team_members": "All project team members must belong to this workspace."}
                     )
+
+            key = (attrs.get("key") or "").upper()
+            if key:
+                attrs["key"] = key
+                existing = Project.objects.filter(workspace=workspace, key=key)
+                if self.instance is not None:
+                    existing = existing.exclude(pk=self.instance.pk)
+                if existing.exists():
+                    raise serializers.ValidationError(
+                        {"key": f"A project with key '{key}' already exists in this workspace."}
+                    )
         return attrs
 
 

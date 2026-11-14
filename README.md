@@ -7,7 +7,7 @@ A premium project management platform where each company gets its own isolated w
 ```
 +----------------+      HTTPS       +----------------------------+
 |   React Frontend| <--------------> |   Django / DRF (Gunicorn)   |
-|  (Vite, port 5173) |               |   (port 8000)                |
+|  (Vite, port 5173) |               |   (port 6000)                |
 +----------------+      API          +----------------------------+
                                                  |
                                                  | X-Tenant-Slug header
@@ -119,8 +119,8 @@ cp backend/.env.example backend/.env
 docker compose up --build
 
 # Services:
-#   Backend API:  http://localhost:8000
-#   API docs:     http://localhost:8000/api/docs/
+#   Backend API:  http://localhost:6000
+#   API docs:     http://localhost:6000/api/docs/
 #   Frontend:     http://localhost:5173
 #   Postgres:     localhost:5432
 #   Redis:        localhost:6379
@@ -137,7 +137,7 @@ pip install -r requirements.txt
 cp .env.example .env   # set STRIPE keys if testing billing
 
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver 6000
 ```
 
 ### Option 3: Manual (frontend)
@@ -180,12 +180,17 @@ Issues:
 |--------|----------|-------------|
 | GET/POST | `/api/issues/` | List/create issues |
 | GET/PUT/DELETE | `/api/issues/{id}/` | Issue detail |
+| GET | `/api/issues/my-work/?bucket={all\|open\|due_soon\|overdue\|completed}` | Paginated tasks assigned to the current user |
 | POST | `/api/issues/{id}/move/` | Drag-and-drop (`column_id`, `position`) |
 | POST | `/api/issues/{id}/transition/` | Change status (`status_id`) |
 | GET/POST | `/api/issues/comments/?issue={id}` | Issue comments |
 | GET/POST | `/api/issues/attachments/?issue={id}` | Issue attachments |
-| GET | `/api/issues/audit-logs/` | Audit logs |
 | GET | `/api/issues/statuses/?workspace={id}` | Workflow statuses |
+
+Issues can also have a same-project parent task, nested subtasks, and blocking
+dependencies. Dependency cycles and cross-project/workspace relationships are
+rejected by the API. Comments can mention project teammates by email (for
+example, `@teammate@example.com`) to create a targeted notification.
 
 Billing:
 
@@ -213,7 +218,7 @@ Notifications:
 | POST | `/api/notifications/notifications/{id}/read/` | Mark as read |
 | POST | `/api/notifications/notifications/read-all/` | Mark all as read |
 
-OpenAPI docs: `http://localhost:8000/api/docs/` (Swagger) or `/api/redoc/`.
+OpenAPI docs: `http://localhost:6000/api/docs/` (Swagger) or `/api/redoc/`.
 
 ## Running Tests
 

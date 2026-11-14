@@ -20,7 +20,7 @@ def project_member_ids(project):
     """Return user IDs of members of a project.
 
     A project member is anyone who:
-    - created, owns, or manages the project, or
+    - created, owns, manages, or is explicitly on the project team, or
     - is assigned to or reported an issue in the project.
     """
     user_ids = set()
@@ -30,6 +30,7 @@ def project_member_ids(project):
         user_ids.add(project.owner_id)
     if project.manager_id:
         user_ids.add(project.manager_id)
+    user_ids.update(project.team_members.values_list("id", flat=True))
 
     from issues.models import Issue
 

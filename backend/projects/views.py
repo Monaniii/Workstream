@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.exceptions import ValidationError
 from tenants.models import WorkspaceMember
 from .models import Project, Board, Sprint
@@ -141,12 +141,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
         manager = serializer.validated_data.get("manager")
         if manager:
             initial_team.add(manager)
-        project = serializer.save(
-            workspace=tenant,
-            created_by=self.request.user,
-            owner=owner,
-            team_members=list(initial_team),
-        )
+        try:
+            project = serializer.save(
+                workspace=tenant,
+                created_by=self.request.user,
+                owner=owner,
+                team_members=list(initial_team),
+            )
+        except IntegrityError:
+            raise ValidationError(
+                {
+                    "key": "A project with this key already exists in this workspace."
+                }
+            )
         Board.objects.create(
             workspace=tenant,
             project=project,

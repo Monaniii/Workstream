@@ -5,7 +5,7 @@ import { Settings, Save, User } from "lucide-react"
 import toast from "react-hot-toast"
 
 export default function SettingsGeneralPage() {
-  const { activeWorkspace, setActiveWorkspace, workspaces } = useAuth()
+  const { activeWorkspace, fetchWorkspaces, workspaces } = useAuth()
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [plan, setPlan] = useState("")
@@ -25,12 +25,13 @@ export default function SettingsGeneralPage() {
     if (!activeWorkspace) return
     setSaving(true)
     try {
-      await workspacesApi.update(activeWorkspace.id, {
+      const updated = await workspacesApi.update(activeWorkspace.id, {
         name,
         slug,
         plan,
       })
-      setActiveWorkspace({ ...activeWorkspace, name, slug, plan })
+      localStorage.setItem("workspaceSlug", updated.slug)
+      await fetchWorkspaces()
       toast.success("Workspace settings saved")
     } catch (err: any) {
       toast.error("Failed to save workspace settings")
@@ -44,18 +45,18 @@ export default function SettingsGeneralPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Workspace Settings</h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-ink-muted text-sm">
             Manage workspace profile, name, and plan details
           </p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl">
+      <div className="bg-surface rounded-xl border border-line p-6 max-w-2xl">
         <div className="flex items-center gap-3 mb-2">
-          <Settings className="w-5 h-5 text-indigo-600" />
+          <Settings className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           <h2 className="text-lg font-semibold">General</h2>
         </div>
-        <p className="text-gray-500 text-sm mb-6">
+        <p className="text-ink-muted text-sm mb-6">
           Configure your workspace identity and billing plan.
         </p>
 
@@ -68,7 +69,7 @@ export default function SettingsGeneralPage() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Workspace name"
               required
             />
@@ -81,11 +82,11 @@ export default function SettingsGeneralPage() {
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="workspace-slug"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-ink-muted mt-1">
               Used in URLs and API references. Changing this may break existing
               links.
             </p>
@@ -97,7 +98,7 @@ export default function SettingsGeneralPage() {
             <select
               value={plan}
               onChange={(e) => setPlan(e.target.value)}
-              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="free">Free</option>
               <option value="starter">Starter</option>
@@ -115,28 +116,28 @@ export default function SettingsGeneralPage() {
         </form>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-2xl mt-6">
+      <div className="bg-surface rounded-xl border border-line p-6 max-w-2xl mt-6">
         <div className="flex items-center gap-3 mb-2">
-          <User className="w-5 h-5 text-indigo-600" />
+          <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           <h2 className="text-lg font-semibold">Current Workspace</h2>
         </div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-gray-500">Name</dt>
+            <dt className="text-ink-muted">Name</dt>
             <dd className="font-medium">{activeWorkspace?.name || "—"}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Slug</dt>
-            <dd className="font-medium text-indigo-600">
+            <dt className="text-ink-muted">Slug</dt>
+            <dd className="font-medium text-indigo-600 dark:text-indigo-400">
               {activeWorkspace?.slug || "—"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Plan</dt>
+            <dt className="text-ink-muted">Plan</dt>
             <dd className="font-medium">{activeWorkspace?.plan || "—"}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Members</dt>
+            <dt className="text-ink-muted">Members</dt>
             <dd className="font-medium">
               {workspaces.find((w) => w.id === activeWorkspace?.id)
                 ?.member_count || 0}

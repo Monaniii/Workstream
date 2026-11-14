@@ -5,12 +5,12 @@ import { Link } from "react-router-dom"
 import { Plus, Briefcase, Layout } from "lucide-react"
 
 const STATUS_COLORS: Record<string, string> = {
-  planned: "bg-blue-100 text-blue-700",
-  active: "bg-green-100 text-green-700",
-  planning: "bg-blue-100 text-blue-700",
-  on_hold: "bg-amber-100 text-amber-700",
-  completed: "bg-slate-100 text-slate-700",
-  archived: "bg-slate-100 text-slate-500",
+  planned: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  active: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  planning: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  on_hold: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  completed: "bg-surface-inset text-ink",
+  archived: "bg-surface-inset text-ink-muted",
 }
 
 export default function ProjectListPage() {
@@ -21,18 +21,18 @@ export default function ProjectListPage() {
   if (!activeWorkspace) {
     return (
       <div className="flex h-screen flex-col items-center justify-center text-center">
-        <div className="max-w-sm bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 mb-4">
+        <div className="max-w-sm bg-surface rounded-2xl border border-line p-8 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/15 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-4">
             <Layout className="w-6 h-6" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Select a workspace</h2>
-          <p className="text-slate-500 text-sm mb-6">
+          <h2 className="text-xl font-bold text-ink mb-2">Select a workspace</h2>
+          <p className="text-ink-muted text-sm mb-6">
             Choose a workspace to view your projects.
           </p>
           <select
             value=""
             onChange={(e) => setActiveWorkspace(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50 mb-4 bg-white"
+            className="w-full border border-line rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-blue-500/50 mb-4 bg-surface"
           >
             <option value="" disabled>
               Choose a workspace...
@@ -58,16 +58,16 @@ export default function ProjectListPage() {
     <div className="flex flex-col min-h-0">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-bold text-ink tracking-tight">
             {activeWorkspace.name}
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-ink-muted text-sm mt-1">
             Plan: {activeWorkspace.plan}
           </p>
         </div>
         <Link
           to="/app/billing"
-          className="text-sm text-slate-500 hover:text-blue-600 hover:underline"
+          className="text-sm text-ink-muted hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
         >
           Manage billing
         </Link>
@@ -88,7 +88,7 @@ export default function ProjectListPage() {
               className={`px-3 py-1.5 rounded-md text-sm font-medium border transition ${
                 tab === t.value
                   ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/30"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                  : "bg-surface text-ink-muted border-line hover:border-line hover:bg-surface-muted"
               }`}
             >
               {t.label}
@@ -105,20 +105,20 @@ export default function ProjectListPage() {
         )}
       </div>
 
-      {loading && <div className="text-center py-16 text-slate-400 text-sm">Loading projects...</div>}
+      {loading && <div className="text-center py-16 text-ink-subtle text-sm">Loading projects...</div>}
       {error && (
-        <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        <div role="alert" className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
 
       {!loading && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-surface-inset flex items-center justify-center text-ink-subtle mb-4">
             <Briefcase className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-medium text-slate-900 mb-2">No projects yet</h3>
-          <p className="text-slate-500 text-sm mb-6">
+          <h3 className="text-lg font-medium text-ink mb-2">No projects yet</h3>
+          <p className="text-ink-muted text-sm mb-6">
             {canManageProjects
               ? "Create your first project to get started."
               : "There are no projects in this workspace yet."}
@@ -135,75 +135,75 @@ export default function ProjectListPage() {
       )}
 
       {!loading && filtered.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-surface rounded-2xl border border-line shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <tr className="border-b border-line bg-surface-muted">
+                  <th className="px-6 py-4 text-xs font-semibold text-ink-subtle uppercase tracking-wider">
                     Project
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-xs font-semibold text-ink-subtle uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">
+                  <th className="px-6 py-4 text-xs font-semibold text-ink-subtle uppercase tracking-wider text-right">
                     Progress
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">
+                  <th className="px-6 py-4 text-xs font-semibold text-ink-subtle uppercase tracking-wider text-right">
                     Due Date
                   </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">
+                  <th className="px-6 py-4 text-xs font-semibold text-ink-subtle uppercase tracking-wider text-right">
                     Owner
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {filtered.map((p) => (
                   <tr
                     key={p.id}
-                    className="hover:bg-slate-50 transition group"
+                    className="hover:bg-surface-muted transition group"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-700 font-bold shadow-sm">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold shadow-sm">
                           {p.key.charAt(0)}
                         </div>
                         <div>
                           <Link
                             to={`/app/projects/${p.id}`}
-                            className="text-sm font-medium text-slate-900 hover:text-blue-700"
+                            className="text-sm font-medium text-ink hover:text-blue-600 dark:hover:text-blue-400"
                           >
                             {p.name}
                           </Link>
-                          <p className="text-[10px] text-slate-500">{p.description || "No description"}</p>
+                          <p className="text-[10px] text-ink-muted">{p.description || "No description"}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status] || "bg-slate-100 text-slate-700"}`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status] || "bg-surface-inset text-ink"}`}>
                         {p.status.replace(/_/g, " ").toUpperCase()}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="w-32 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="w-32 h-1.5 bg-surface-inset rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-600"
                           style={{ width: `${p.progress_percentage || 0}%` }}
                         />
                       </div>
-                      <p className="text-[10px] font-medium text-slate-500 text-right mt-1">
+                      <p className="text-[10px] font-medium text-ink-muted text-right mt-1">
                         {(p.progress_percentage || 0).toFixed(0)}%
                       </p>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <p className="text-sm text-slate-900">{p.target_date || "Not set"}</p>
+                      <p className="text-sm text-ink">{p.target_date || "Not set"}</p>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold">
+                        <div className="w-6 h-6 rounded-full bg-surface-inset flex items-center justify-center text-ink-muted text-xs font-bold">
                           {(p.owner_name || p.owner_email || p.key).charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm text-slate-700">
+                        <span className="text-sm text-ink">
                           {p.owner_name || p.owner_email || "Unassigned"}
                         </span>
                       </div>

@@ -159,8 +159,8 @@ export default function AuditLogPage() {
 
   if (!canAccess) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
-        <Shield className="w-12 h-12 mb-3 text-gray-300" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-ink-muted">
+        <Shield className="w-12 h-12 mb-3 text-ink-subtle" />
         <h2 className="text-lg font-medium">Access Denied</h2>
         <p className="text-sm">
           Audit logs are restricted to administrators and superusers.
@@ -171,12 +171,12 @@ export default function AuditLogPage() {
 
   const outcomeBadge = (outcome: string) => {
     const variants: Record<string, string> = {
-      success: "bg-green-50 text-green-700 border-green-100",
-      failure: "bg-amber-50 text-amber-700 border-amber-100",
-      denied: "bg-red-50 text-red-700 border-red-100",
-      error: "bg-gray-50 text-gray-700 border-gray-100",
+      success: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-green-100",
+      failure: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-100",
+      denied: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-100",
+      error: "bg-surface-muted text-ink border-line",
     }
-    return variants[outcome] || "bg-gray-50 text-gray-600 border-gray-100"
+    return variants[outcome] || "bg-surface-muted text-ink-muted border-line"
   }
 
   return (
@@ -184,7 +184,7 @@ export default function AuditLogPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Audit Log</h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-ink-muted text-sm">
             Security audit trail — who did what, when, where, and with what
             outcome.
           </p>
@@ -192,14 +192,14 @@ export default function AuditLogPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={fetchEvents}
-            className="p-2 text-gray-500 hover:text-indigo-600 transition"
+            className="p-2 text-ink-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition"
             disabled={loading}
           >
             <Clock className="w-4 h-4" />
           </button>
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-200 rounded-md text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-line rounded-md text-ink hover:bg-surface-muted transition disabled:opacity-50"
             disabled={loading || page?.count === 0}
           >
             <Download className="w-4 h-4" /> Export CSV
@@ -208,43 +208,43 @@ export default function AuditLogPage() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-md bg-red-50 border border-red-100 text-red-800 text-sm">
+        <div className="mb-6 p-4 rounded-md bg-red-500/10 border border-red-100 text-red-800 text-sm">
           {error}
         </div>
       )}
 
       {/* Summary metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+        <div className="bg-surface rounded-xl border border-line p-6">
+          <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
             Total Events
           </p>
-          <h3 className="text-2xl font-bold text-gray-900">
+          <h3 className="text-2xl font-bold text-ink">
             {stats?.total_events ?? page?.count ?? 0}
           </h3>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+        <div className="bg-surface rounded-xl border border-line p-6">
+          <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
             Successful
           </p>
-          <h3 className="text-2xl font-bold text-green-700">
+          <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             {stats?.successful_actions ?? 0}
           </h3>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+        <div className="bg-surface rounded-xl border border-line p-6">
+          <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
             Failed / Denied
           </p>
-          <h3 className="text-2xl font-bold text-red-700">
+          <h3 className="text-2xl font-bold text-red-600 dark:text-red-400">
             {(stats?.failed_actions ?? 0) + (stats?.denied_actions ?? 0)}
           </h3>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+      <div className="bg-surface rounded-xl border border-line p-6 mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+          <h3 className="text-sm font-semibold text-ink">Filters</h3>
           <button
             onClick={() => {
               setFilters({
@@ -259,42 +259,42 @@ export default function AuditLogPage() {
                 page: "1",
               })
             }}
-            className="text-xs text-indigo-600 hover:text-indigo-800"
+            className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
           >
             Reset
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">From date</label>
+            <label className="text-xs font-medium text-ink-muted">From date</label>
             <input
               type="date"
               value={filters.start_date}
               onChange={(e) =>
                 setFilters({ ...filters, start_date: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">To date</label>
+            <label className="text-xs font-medium text-ink-muted">To date</label>
             <input
               type="date"
               value={filters.end_date}
               onChange={(e) =>
                 setFilters({ ...filters, end_date: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">Module</label>
+            <label className="text-xs font-medium text-ink-muted">Module</label>
             <select
               value={filters.module}
               onChange={(e) =>
                 setFilters({ ...filters, module: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All</option>
               {MODULES.map((m) => (
@@ -305,13 +305,13 @@ export default function AuditLogPage() {
             </select>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">Action</label>
+            <label className="text-xs font-medium text-ink-muted">Action</label>
             <select
               value={filters.action}
               onChange={(e) =>
                 setFilters({ ...filters, action: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All</option>
               {ACTIONS.map((a) => (
@@ -322,13 +322,13 @@ export default function AuditLogPage() {
             </select>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">Outcome</label>
+            <label className="text-xs font-medium text-ink-muted">Outcome</label>
             <select
               value={filters.outcome}
               onChange={(e) =>
                 setFilters({ ...filters, outcome: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All</option>
               {OUTCOMES.map((o) => (
@@ -339,7 +339,7 @@ export default function AuditLogPage() {
             </select>
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">Resource type</label>
+            <label className="text-xs font-medium text-ink-muted">Resource type</label>
             <input
               value={filters.resource_type}
               onChange={(e) =>
@@ -349,29 +349,29 @@ export default function AuditLogPage() {
                   page: "1",
                 })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. project"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">Actor (email/name)</label>
+            <label className="text-xs font-medium text-ink-muted">Actor (email/name)</label>
             <input
               value={filters.actor}
               onChange={(e) =>
                 setFilters({ ...filters, actor: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Search actor..."
             />
           </div>
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium text-gray-500">Keyword</label>
+            <label className="text-xs font-medium text-ink-muted">Keyword</label>
             <input
               value={filters.search}
               onChange={(e) =>
                 setFilters({ ...filters, search: e.target.value, page: "1" })
               }
-              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Search description..."
             />
           </div>
@@ -379,33 +379,33 @@ export default function AuditLogPage() {
       </div>
 
       {/* Events table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-surface rounded-xl border border-line overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+              <tr className="border-b border-line bg-surface-muted">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase">
                   Timestamp
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase">
                   Actor
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase">
                   Action
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase">
                   Module
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase">
                   Resource
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase text-right">
                   Outcome
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase">
                   Description
                 </th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-right">
+                <th className="px-4 py-3 text-xs font-semibold text-ink-muted uppercase text-right">
                   Detail
                 </th>
               </tr>
@@ -413,13 +413,13 @@ export default function AuditLogPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-gray-500">
+                  <td colSpan={8} className="py-10 text-center text-ink-muted">
                     Loading audit events…
                   </td>
                 </tr>
               ) : events.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-gray-500">
+                  <td colSpan={8} className="py-10 text-center text-ink-muted">
                     No audit events match the current filters.
                   </td>
                 </tr>
@@ -428,27 +428,27 @@ export default function AuditLogPage() {
                   <tr
                     key={event.id}
                     onClick={() => setSelected(event)}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition cursor-pointer group"
+                    className="border-b border-line hover:bg-surface-muted transition cursor-pointer group"
                   >
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-ink-muted">
                       {new Date(event.timestamp).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-ink">
                       <div className="flex items-center gap-2">
-                        <UserIcon className="w-4 h-4 text-gray-400" />
+                        <UserIcon className="w-4 h-4 text-ink-subtle" />
                         <span>{event.actor_name || "System"}</span>
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-ink-subtle">
                         {event.actor_email || "system"}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-indigo-600 font-medium">
+                    <td className="px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
                       {event.action}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{event.module}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-ink-muted">{event.module}</td>
+                    <td className="px-4 py-3 text-sm text-ink">
                       {event.resource_type}{event.resource_id && (
-                        <span className="ml-1 text-xs text-gray-400">#{event.resource_id}</span>
+                        <span className="ml-1 text-xs text-ink-subtle">#{event.resource_id}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
@@ -458,11 +458,11 @@ export default function AuditLogPage() {
                         {event.outcome}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[300px]">
+                    <td className="px-4 py-3 text-sm text-ink-muted truncate max-w-[300px]">
                       {event.description}
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
-                      <ChevronRight className="w-3 h-3 text-gray-400 group-hover:text-indigo-600" />
+                      <ChevronRight className="w-3 h-3 text-ink-subtle group-hover:text-indigo-600 dark:hover:text-indigo-400" />
                     </td>
                   </tr>
                 ))
@@ -473,8 +473,8 @@ export default function AuditLogPage() {
 
         {/* Pagination */}
         {page && page.count > 0 && (
-          <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-xs text-gray-500">
+          <div className="px-4 py-3 border-t border-line flex items-center justify-between">
+            <div className="text-xs text-ink-muted">
               Showing {events.length} of {page.count} events
             </div>
             <div className="flex items-center gap-2">
@@ -486,11 +486,11 @@ export default function AuditLogPage() {
                   setFilters({ ...filters, page: url.searchParams.get("page") || "1" })
                 }}
                 disabled={!page.previous}
-                className="px-3 py-1.5 text-sm rounded border text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm rounded border text-ink hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Prev
               </button>
-              <span className="px-2 text-xs text-gray-600">
+              <span className="px-2 text-xs text-ink-muted">
                 Page {filters.page}
               </span>
               <button
@@ -501,7 +501,7 @@ export default function AuditLogPage() {
                   setFilters({ ...filters, page: url.searchParams.get("page") || "1" })
                 }}
                 disabled={!page.next}
-                className="px-3 py-1.5 text-sm rounded border text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-sm rounded border text-ink hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>
@@ -512,98 +512,98 @@ export default function AuditLogPage() {
 
       {/* Event detail */}
       {selected && (
-        <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6">
+        <div className="mt-8 bg-surface rounded-xl border border-line p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Event Detail</h3>
             <button
               onClick={() => setSelected(null)}
-              className="p-2 text-gray-500 hover:text-gray-900"
+              className="p-2 text-ink-muted hover:text-ink"
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface-muted p-3 rounded">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Timestamp
               </p>
-              <p className="text-sm text-gray-900">{new Date(selected.timestamp).toLocaleString()}</p>
+              <p className="text-sm text-ink">{new Date(selected.timestamp).toLocaleString()}</p>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface-muted p-3 rounded">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Actor
               </p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-ink">
                 {selected.actor_name || "System"}
                 {selected.actor_email && (
-                  <span className="ml-2 text-xs text-gray-500">({selected.actor_email})</span>
+                  <span className="ml-2 text-xs text-ink-muted">({selected.actor_email})</span>
                 )}
               </p>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface-muted p-3 rounded">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Action / Module
               </p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-ink">
                 {selected.action} · {selected.module}
               </p>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface-muted p-3 rounded">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Outcome
               </p>
               <p className={`text-sm font-medium ${outcomeBadge(selected.outcome).replace("bg-", "text-").replace("-100", "-700")}`}>
                 {selected.outcome}
               </p>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface-muted p-3 rounded">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Resource
               </p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-ink">
                 {selected.resource_type}{selected.resource_id && ` #${selected.resource_id}`}
               </p>
             </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface-muted p-3 rounded">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Workspace
               </p>
-              <p className="text-sm text-gray-900">
+              <p className="text-sm text-ink">
                 {selected.workspace_name || "—"}
               </p>
             </div>
           </div>
-          <div className="bg-gray-50 p-4 rounded mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase mb-2">
+          <div className="bg-surface-muted p-4 rounded mb-4">
+            <p className="text-xs font-semibold text-ink-subtle uppercase mb-2">
               Description
             </p>
-            <p className="text-sm text-gray-900 whitespace-pre-wrap">
+            <p className="text-sm text-ink whitespace-pre-wrap">
               {selected.description}
             </p>
           </div>
           {selected.changed_fields && Object.keys(selected.changed_fields).length > 0 && (
-            <div className="bg-gray-50 p-4 rounded mb-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-2">
+            <div className="bg-surface-muted p-4 rounded mb-4">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-2">
                 Changed Fields
               </p>
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="py-2 text-xs font-semibold text-gray-500">Field</th>
-                    <th className="py-2 text-xs font-semibold text-gray-500">From</th>
-                    <th className="py-2 text-xs font-semibold text-gray-500">To</th>
+                  <tr className="border-b border-line">
+                    <th className="py-2 text-xs font-semibold text-ink-muted">Field</th>
+                    <th className="py-2 text-xs font-semibold text-ink-muted">From</th>
+                    <th className="py-2 text-xs font-semibold text-ink-muted">To</th>
                   </tr>
                 </thead>
                 <tbody>
                   {Object.entries(selected.changed_fields).map(([field, change]) => (
-                    <tr key={field} className="border-b border-gray-50">
-                      <td className="py-2 text-gray-900 font-mono">{field}</td>
-                      <td className="py-2 text-gray-600">
+                    <tr key={field} className="border-b border-line">
+                      <td className="py-2 text-ink font-mono">{field}</td>
+                      <td className="py-2 text-ink-muted">
                         {typeof change === "object" && change !== null && "from" in change
                           ? String((change as any).from)
                           : "—"}
                       </td>
-                      <td className="py-2 text-gray-600">
+                      <td className="py-2 text-ink-muted">
                         {typeof change === "object" && change !== null && "to" in change
                           ? String((change as any).to)
                           : String(change)}
@@ -615,7 +615,7 @@ export default function AuditLogPage() {
             </div>
           )}
           {selected.request_id && (
-            <div className="text-xs text-gray-500 mb-2">
+            <div className="text-xs text-ink-muted mb-2">
               Request ID: <span className="font-mono">{selected.request_id}</span>
             </div>
           )}

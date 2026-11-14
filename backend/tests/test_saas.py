@@ -188,6 +188,41 @@ class TestCrossTenantIsolation:
 class TestBillingEntitlements:
     """Plan limits must be enforced on the server."""
 
+    def test_billing_endpoints_are_admin_only(
+        self, api_client, workspace_a, admin_user_a
+    ):
+        member = User.objects.create_user(
+            email="billing-member@company-a.com",
+            username="billing-member",
+            password="test-password-123",
+        )
+        WorkspaceMember.objects.create(
+            user=member,
+            workspace=workspace_a,
+            role=MembershipRole.MEMBER,
+        )
+        token, _ = Token.objects.get_or_create(user=member)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+            HTTP_X_TENANT_SLUG=workspace_a.slug,
+        )
+
+        for endpoint in (
+            "/api/billing/plans/",
+            "/api/billing/subscription/",
+            "/api/billing/invoices/",
+        ):
+            response = api_client.get(endpoint)
+            assert response.status_code == 403, response.data
+
+        admin_token, _ = Token.objects.get_or_create(user=admin_user_a)
+        api_client.credentials(
+            HTTP_AUTHORIZATION=f"Token {admin_token.key}",
+            HTTP_X_TENANT_SLUG=workspace_a.slug,
+        )
+        plans_response = api_client.get("/api/billing/plans/")
+        assert plans_response.status_code == 200, plans_response.data
+
     def test_free_plan_project_limit(
         self, client_admin_a, workspace_a
     ):
@@ -414,8 +449,9 @@ class TestExistingFunctionality:
         resp = api_client.get("/api/projects/")
         assert resp.status_code == 403
 
-    def test_issue_creation_and_key(self, client_admin_a, workspace_a):
+    def test_issue_creation_and_key(self, client_admin_a, workspace_a, admin_user_a):
         project = Project.objects.create(workspace=workspace_a, name="P", key="PRJ")
+        project.team_members.add(admin_user_a)
         board = Board.objects.create(
             workspace=workspace_a, project=project, name="B", columns=[]
         )
@@ -646,6 +682,48 @@ class TestReports:
         )
         assert resp.status_code == 400
 
+    def test_export_csv_uses_period_from_post_body(
+        self, client_admin_a, workspace_a, admin_user_a
+    ):
+        project = Project.objects.create(
+            workspace=workspace_a, name="Period Project", key="PER"
+        )
+        status_todo = IssueStatus.objects.create(
+            workspace=workspace_a, name="To Do", key="todo", is_initial=True
+        )
+        old_issue = Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="PER-1",
+            summary="Older task",
+            priority="medium",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+        Issue.objects.filter(pk=old_issue.pk).update(
+            created_at=timezone.now() - timedelta(days=40)
+        )
+        Issue.objects.create(
+            workspace=workspace_a,
+            project=project,
+            status=status_todo,
+            key="PER-2",
+            summary="Recent task",
+            priority="medium",
+            issue_type="task",
+            assignee=admin_user_a,
+        )
+
+        resp = client_admin_a.post(
+            "/api/reports/export/csv/",
+            {"report_type": "overview", "period": "last_7_days"},
+            format="json",
+        )
+
+        assert resp.status_code == 200
+        assert b"Tasks Created In Period,1" in resp.content
+
     def test_reports_require_tenant(
         self, api_client, admin_user_a
     ):
@@ -859,4 +937,3 @@ class TestProjectFeatures:
         resp = client_admin_a.get("/api/projects/?priority=high")
         assert resp.status_code == 200
         assert all(p["priority"] == "high" for p in resp.data["results"])
-

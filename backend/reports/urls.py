@@ -12,5 +12,10 @@ urlpatterns = [
     path("tasks/", views.ReportsViewSet.as_view({"get": "tasks"}), name="report-tasks"),
     path("team/", views.ReportsViewSet.as_view({"get": "team"}), name="report-team"),
     path("activity/", views.ReportsViewSet.as_view({"get": "activity"}), name="report-activity"),
+    path(
+        "project-analytics/",
+        views.ProjectAnalyticsView.as_view({"get": "list"}),
+        name="report-project-analytics",
+    ),
     path("export/csv/", views.ReportsViewSet.as_view({"post": "export_csv"}), name="report-export-csv"),
 ]

@@ -44,60 +44,60 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FAFC] p-6">
-      <div className="w-full max-w-md rounded-2xl border-gray-200 bg-white p-8 shadow-sm">
+    <div className="min-h-screen flex items-center justify-center bg-canvas p-6">
+      <div className="w-full max-w-md rounded-2xl border-line bg-surface p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900">Set a new password</h1>
-            <p className="text-xs text-gray-500">
+            <h1 className="text-lg font-bold text-ink">Set a new password</h1>
+            <p className="text-xs text-ink-muted">
               You signed in with a temporary password.
             </p>
           </div>
         </div>
 
-        <p className="mb-5 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+        <p className="mb-5 rounded-lg bg-blue-500/10 px-3 py-2 text-xs text-blue-800">
           Choose your own password to continue. Your temporary password was sent
           by email and should no longer be used.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-500">
+            <label className="mb-1 block text-xs font-semibold text-ink-muted">
               Temporary password
             </label>
             <input
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full rounded-xl border border-line px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               required
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-500">
+            <label className="mb-1 block text-xs font-semibold text-ink-muted">
               New password
             </label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full rounded-xl border border-line px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               placeholder="At least 8 characters"
               required
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-500">
+            <label className="mb-1 block text-xs font-semibold text-ink-muted">
               Confirm new password
             </label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full rounded-xl border border-line px-4 py-3 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               required
             />
           </div>
@@ -112,7 +112,7 @@ export default function ChangePasswordPage() {
 
         <button
           onClick={logout}
-          className="mt-4 w-full text-center text-xs text-gray-500 hover:underline"
+          className="mt-4 w-full text-center text-xs text-ink-muted hover:underline"
         >
           Sign out
         </button>

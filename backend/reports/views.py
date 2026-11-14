@@ -30,6 +30,58 @@ def _tenant(request):
     return getattr(request, "tenant", None)
 
 
+def _member_role(request):
+    """Return the requesting user's workspace role, or None."""
+    tenant = _tenant(request)
+    if not tenant:
+        return None
+    return (
+        WorkspaceMember.objects.filter(workspace=tenant, user=request.user)
+        .values_list("role", flat=True)
+        .first()
+    )
+
+
+def _scope(request, issues_qs, projects_qs):
+    """Personalise analytics by role.
+
+    - Admins (and platform superusers) see the whole workspace.
+    - Managers and members see only the projects they are on (project team,
+      owner or manager) and the tasks raised in or assigned to those projects.
+    - Viewers keep read-only access but are not personalised, so their
+      analytics match what they are allowed to browse.
+
+    Returns ``(issues_qs, projects_qs, scope)`` where ``scope`` describes the
+    applied scope for the response payload.
+    """
+    user = request.user
+    tenant = _tenant(request)
+    role = _member_role(request)
+
+    if role == MembershipRole.VIEWER:
+        scope = {"type": "workspace", "role": role, "project_ids": None}
+        return issues_qs, projects_qs, scope
+
+    if user.is_superuser or role == MembershipRole.ADMIN:
+        scope = {"type": "workspace", "role": role or "admin", "project_ids": None}
+        return issues_qs, projects_qs, scope
+
+    my_projects = projects_qs.filter(
+        Q(team_members=user) | Q(owner=user) | Q(manager=user)
+    ).distinct()
+    project_ids = list(my_projects.values_list("id", flat=True))
+    scoped_issues = issues_qs.filter(
+        Q(project_id__in=project_ids) | Q(assignee=user) | Q(reporter=user)
+    )
+    scope = {
+        "type": "personal",
+        "role": role,
+        "project_ids": project_ids,
+        "label": "Your projects",
+    }
+    return scoped_issues, my_projects, scope
+
+
 def _parse_date(value):
     """Parse an ISO-format date string. Returns None if invalid."""
     if not value:
@@ -41,10 +93,13 @@ def _parse_date(value):
 
 
 def _date_range_params(request):
-    """Extract and validate date range from query params."""
-    start = _parse_date(request.query_params.get("start_date"))
-    end = _parse_date(request.query_params.get("end_date"))
-    period = request.query_params.get("period")
+    """Extract and validate date range from query params or a POST body."""
+    params = request.data if request.method in ("POST", "PUT", "PATCH") else {}
+    start = _parse_date(
+        request.query_params.get("start_date") or params.get("start_date")
+    )
+    end = _parse_date(request.query_params.get("end_date") or params.get("end_date"))
+    period = request.query_params.get("period") or params.get("period")
 
     today = timezone.now().date()
 
@@ -99,6 +154,8 @@ class ReportsViewSet(viewsets.ViewSet):
         issues_qs = Issue.objects.filter(workspace=tenant)
         members_qs = WorkspaceMember.objects.filter(workspace=tenant)
 
+        issues_qs, projects_qs, scope = _scope(request, issues_qs, projects_qs)
+
         total_projects = projects_qs.count()
 
         # Task status distribution
@@ -113,6 +170,26 @@ class ReportsViewSet(viewsets.ViewSet):
 
         # Tasks created in period
         created_in_period = _apply_date_filter(issues_qs, start, end).count()
+
+        # Per-project completion breakdown shown on the analytics cards
+        projects_summary = []
+        for p in projects_qs.only("id", "key", "name", "status"):
+            p_total = issues_qs.filter(project_id=p.id).count()
+            p_completed = issues_qs.filter(project_id=p.id, status__is_final=True).count()
+            projects_summary.append(
+                {
+                    "id": p.id,
+                    "key": p.key,
+                    "name": p.name,
+                    "status": p.status,
+                    "total_tasks": p_total,
+                    "completed_tasks": p_completed,
+                    "completion_rate": (
+                        round(p_completed / p_total * 100, 1) if p_total else 0
+                    ),
+                }
+            )
+        projects_summary.sort(key=lambda x: x["name"].lower())
 
         # Projects at risk: projects with open issues past a threshold
         # Since there is no due_date field, "at risk" = projects with
@@ -133,14 +210,20 @@ class ReportsViewSet(viewsets.ViewSet):
                     }
                 )
 
-        # Overdue tasks - NOTE: Issue model has no due_date field.
-        # We report open tasks as "potentially overdue" only if they were
-        # created more than 30 days ago and remain open.
-        potentially_overdue = issues_qs.filter(
-            status__is_final=False,
-            created_at__date__lte=timezone.now().date() - timedelta(days=30),
+        # Deadlines: tasks with a real due date.
+        today = timezone.localdate()
+        overdue_tasks = issues_qs.filter(
+            status__is_final=False, due_date__lt=today, due_date__isnull=False
         ).count()
+        due_soon = issues_qs.filter(
+            status__is_final=False,
+            due_date__gte=today,
+            due_date__lte=today + timedelta(days=7),
+        ).count()
+        # Legacy signal kept for the dashboard card.
+        potentially_overdue = overdue_tasks
 
+        total_tasks = issues_qs.count()
         data = {
             "workspace": {
                 "id": tenant.id,
@@ -148,19 +231,26 @@ class ReportsViewSet(viewsets.ViewSet):
                 "slug": tenant.slug,
                 "plan": tenant.plan,
             },
+            "scope": scope,
             "period": {"start": str(start) if start else None, "end": str(end) if end else None},
             "kpis": {
                 "total_projects": total_projects,
                 "active_projects": total_projects,
-                "total_tasks": issues_qs.count(),
+                "total_tasks": total_tasks,
                 "open_tasks": open_tasks,
                 "completed_tasks": completed_tasks,
+                "completion_rate": (
+                    round(completed_tasks / total_tasks * 100, 1) if total_tasks else 0
+                ),
                 "potentially_overdue_tasks": potentially_overdue,
+                "overdue_tasks": overdue_tasks,
+                "due_soon_tasks": due_soon,
                 "tasks_created_in_period": created_in_period,
                 "projects_at_risk_count": len(projects_at_risk),
                 "total_members": members_qs.count(),
             },
             "projects_at_risk": projects_at_risk,
+            "projects_summary": projects_summary,
             "status_distribution": list(status_counts),
         }
         return Response(data)
@@ -173,6 +263,7 @@ class ReportsViewSet(viewsets.ViewSet):
 
         issues_qs = Issue.objects.filter(workspace=tenant)
         projects_qs = Project.objects.filter(workspace=tenant)
+        issues_qs, projects_qs, scope = _scope(request, issues_qs, projects_qs)
 
         results = []
         for p in projects_qs.select_related("created_by"):
@@ -204,7 +295,9 @@ class ReportsViewSet(viewsets.ViewSet):
             )
 
         results.sort(key=lambda x: x["total_tasks"], reverse=True)
-        return Response({"workspace": tenant.id, "projects": results})
+        return Response(
+            {"workspace": tenant.id, "scope": scope, "projects": results}
+        )
 
     @action(detail=False, methods=["get"], url_path="tasks")
     def tasks(self, request):
@@ -212,9 +305,10 @@ class ReportsViewSet(viewsets.ViewSet):
         tenant = _tenant(request)
         start, end = _date_range_params(request)
 
-        issues_qs = _apply_date_filter(
-            Issue.objects.filter(workspace=tenant), start, end
+        scoped_issues, _, scope = _scope(
+            request, Issue.objects.filter(workspace=tenant), Project.objects.none()
         )
+        issues_qs = _apply_date_filter(scoped_issues, start, end)
 
         # By status
         by_status = (
@@ -263,6 +357,7 @@ class ReportsViewSet(viewsets.ViewSet):
         return Response(
             {
                 "workspace": tenant.id,
+                "scope": scope,
                 "period": {"start": str(start) if start else None, "end": str(end) if end else None},
                 "total": issues_qs.count(),
                 "by_status": list(by_status),
@@ -280,9 +375,10 @@ class ReportsViewSet(viewsets.ViewSet):
         tenant = _tenant(request)
         start, end = _date_range_params(request)
 
-        issues_qs = _apply_date_filter(
-            Issue.objects.filter(workspace=tenant), start, end
+        scoped_issues, _, scope = _scope(
+            request, Issue.objects.filter(workspace=tenant), Project.objects.none()
         )
+        issues_qs = _apply_date_filter(scoped_issues, start, end)
 
         members = (
             WorkspaceMember.objects.filter(workspace=tenant)
@@ -313,6 +409,7 @@ class ReportsViewSet(viewsets.ViewSet):
         return Response(
             {
                 "workspace": tenant.id,
+                "scope": scope,
                 "period": {"start": str(start) if start else None, "end": str(end) if end else None},
                 "members": results,
                 "total_members": len(results),
@@ -325,9 +422,16 @@ class ReportsViewSet(viewsets.ViewSet):
         tenant = _tenant(request)
         start, end = _date_range_params(request)
 
-        logs_qs = _apply_date_filter(
-            AuditLog.objects.filter(workspace=tenant), start, end, date_field="created_at"
+        logs_qs = AuditLog.objects.filter(workspace=tenant)
+        role = _member_role(request)
+        personal = not request.user.is_superuser and role not in (
+            MembershipRole.ADMIN,
+            MembershipRole.VIEWER,
         )
+        if personal:
+            # Managers and members only see activity on their own projects.
+            logs_qs = logs_qs.filter(actor=request.user)
+        logs_qs = _apply_date_filter(logs_qs, start, end, date_field="created_at")
 
         # By action type
         by_action = (
@@ -372,6 +476,10 @@ class ReportsViewSet(viewsets.ViewSet):
         return Response(
             {
                 "workspace": tenant.id,
+                "scope": {
+                    "type": "personal" if personal else "workspace",
+                    "role": role,
+                },
                 "period": {"start": str(start) if start else None, "end": str(end) if end else None},
                 "total_events": logs_qs.count(),
                 "by_action": list(by_action),
@@ -407,11 +515,12 @@ class ReportsViewSet(viewsets.ViewSet):
         elif report_type == "tasks":
             writer.writerow(["Key", "Project", "Status", "Priority", "Type", "Assignee", "Created"])
             resp = self.tasks(request)
-            # Re-query to get full issue objects for CSV
+            # Re-query to get full issue objects for CSV (same role scoping)
+            scoped_issues, _, _ = _scope(
+                request, Issue.objects.filter(workspace=tenant), Project.objects.none()
+            )
             issues_qs = _apply_date_filter(
-                Issue.objects.filter(workspace=tenant).select_related(
-                    "project", "status", "assignee"
-                ),
+                scoped_issues.select_related("project", "status", "assignee"),
                 start,
                 end,
             )
@@ -520,3 +629,91 @@ class ReportExportViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         tenant = _tenant(self.request)
         return ReportExport.objects.filter(workspace=tenant)
+
+
+class ProjectAnalyticsView(viewsets.ViewSet):
+    """Per-project analytics for the project detail page.
+
+    Managers and members are limited to projects they are part of; admins keep
+    visibility of every project in the workspace.
+    """
+
+    permission_classes = [IsAuthenticated, TenantAccessPermission]
+
+    def list(self, request):
+        tenant = _tenant(request)
+        project_id = request.query_params.get("project")
+        if not project_id:
+            return Response(
+                {"detail": "A project id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project = get_object_or_404(
+            Project.objects.filter(workspace=tenant).select_related("owner", "manager"),
+            pk=project_id,
+        )
+        _, scoped_projects, scope = _scope(
+            request, Issue.objects.filter(workspace=tenant), Project.objects.filter(workspace=tenant)
+        )
+        if not request.user.is_superuser and _member_role(request) != MembershipRole.ADMIN:
+            if not scoped_projects.filter(pk=project.id).exists():
+                return Response(
+                    {"detail": "You do not have access to this project's analytics."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        issues_qs = Issue.objects.filter(workspace=tenant, project=project)
+        total = issues_qs.count()
+        completed = issues_qs.filter(status__is_final=True).count()
+        open_tasks = issues_qs.filter(status__is_final=False).count()
+
+        by_status = list(
+            issues_qs.values("status__key", "status__name", "status__is_final")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        by_priority = list(
+            issues_qs.values("priority").annotate(count=Count("id")).order_by("-count")
+        )
+        by_assignee = list(
+            issues_qs.exclude(assignee__isnull=True)
+            .values("assignee", "assignee__email")
+            .annotate(count=Count("id"), completed=Count("id", filter=Q(status__is_final=True)))
+            .order_by("-count")
+        )
+        for row in by_assignee:
+            row["completion_rate"] = (
+                round(row["completed"] / row["count"] * 100, 1) if row["count"] else 0
+            )
+
+        my_tasks = issues_qs.filter(assignee=request.user)
+        my_total = my_tasks.count()
+        my_completed = my_tasks.filter(status__is_final=True).count()
+
+        return Response(
+            {
+                "project": {
+                    "id": project.id,
+                    "key": project.key,
+                    "name": project.name,
+                    "status": project.status,
+                    "owner_email": project.owner.email if project.owner else None,
+                    "manager_email": project.manager.email if project.manager else None,
+                },
+                "scope": scope,
+                "is_member": project.team_members.filter(id=request.user.id).exists(),
+                "kpis": {
+                    "total_tasks": total,
+                    "open_tasks": open_tasks,
+                    "completed_tasks": completed,
+                    "completion_rate": round(completed / total * 100, 1) if total else 0,
+                    "my_tasks": my_total,
+                    "my_completed_tasks": my_completed,
+                    "my_completion_rate": round(my_completed / my_total * 100, 1) if my_total else 0,
+                },
+                "by_status": by_status,
+                "by_priority": by_priority,
+                "by_assignee": by_assignee,
+            }
+        )

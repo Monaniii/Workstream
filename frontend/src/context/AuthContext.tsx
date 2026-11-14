@@ -71,10 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token, base])
 
-  const fetchWorkspaces = async () => {
-    if (!token) return
+  const fetchWorkspaces = async (authToken: string | null = token) => {
+    if (!authToken) return
     const res = await axios.get(`${base}/tenants/workspaces/`, {
-      headers: { Authorization: `Token ${token}` },
+      headers: { Authorization: `Token ${authToken}` },
     })
     const data = Array.isArray(res.data) ? res.data : res.data?.results ?? []
     setWorkspaces(data)
@@ -97,7 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { Authorization: `Token ${res.data.token}` },
     })
     setUser(me.data)
-    await fetchWorkspaces()
+    // Pass the token explicitly: state has not re-rendered yet, so the
+    // closure's `token` is still null here and the request would be sent
+    // unauthenticated (401), leaving the user with no workspaces.
+    await fetchWorkspaces(res.data.token)
   }
 
   const logout = () => {

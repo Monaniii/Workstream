@@ -19,10 +19,9 @@ export function useProjects() {
     setLoading(true)
     setError(null)
     try {
-      const data = await projectsApi.list({
+      const items = await projectsApi.list({
         workspace: String(workspaceId),
       })
-      const items = Array.isArray(data) ? data : data?.results ?? []
       setProjects(items)
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to load projects")

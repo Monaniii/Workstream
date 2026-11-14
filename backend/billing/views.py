@@ -21,7 +21,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 class SubscriptionPlanViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = SubscriptionPlan.objects.filter(is_active=True)
     serializer_class = SubscriptionPlanSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, TenantAccessPermission, IsWorkspaceAdmin]
 
 
 class SubscriptionViewSet(viewsets.ViewSet):

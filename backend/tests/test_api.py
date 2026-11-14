@@ -314,6 +314,7 @@ class TestProjects:
 class TestIssues:
     def test_create_issue_and_key(self, client_admin, workspace):
         project = Project.objects.create(workspace=workspace, name="P", key="PRJ")
+        project.team_members.add(workspace.owner)
         board = Board.objects.create(
             workspace=workspace, project=project, name="B", columns=[]
         )
@@ -337,6 +338,7 @@ class TestIssues:
 
     def test_move_issue(self, client_admin, workspace):
         project = Project.objects.create(workspace=workspace, name="P", key="PRJ")
+        project.team_members.add(workspace.owner)
         board = Board.objects.create(
             workspace=workspace, project=project, name="B", columns=[]
         )

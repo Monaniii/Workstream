@@ -12,7 +12,7 @@ const ROLES = [
 ]
 
 export default function SettingsMembersPage() {
-  const { user, activeWorkspace, setActiveWorkspace, workspaces } = useAuth()
+  const { user, activeWorkspace, fetchWorkspaces } = useAuth()
   // Managers can read the roster but not onboard users; that is admin work.
   const canOnboard =
     Boolean(user?.is_superuser) || activeWorkspace?.current_user_role === "admin"
@@ -95,12 +95,7 @@ export default function SettingsMembersPage() {
     try {
       await workspacesApi.updateMemberRole(activeWorkspace.id, memberId, role)
       loadMembers()
-      setActiveWorkspace({
-        ...activeWorkspace,
-        members: members.map((m) =>
-          m.id === memberId ? { ...m, role } : m
-        ),
-      })
+      await fetchWorkspaces()
       toast.success("Role updated")
     } catch (err: any) {
       toast.error("Failed to update role")
@@ -113,7 +108,7 @@ export default function SettingsMembersPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Workspace Members</h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-ink-muted text-sm">
             {canOnboard
               ? "Manage team members, roles, and access"
               : "People in this workspace and their roles"}
@@ -121,14 +116,14 @@ export default function SettingsMembersPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-4xl">
+      <div className="bg-surface rounded-xl border border-line p-6 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
-          <User className="w-5 h-5 text-indigo-600" />
+          <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           <h2 className="text-lg font-semibold">Members</h2>
         </div>
 
         {!canOnboard && (
-          <p className="mb-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+          <p className="mb-4 rounded-lg bg-surface-muted px-3 py-2 text-xs text-ink-muted">
             You can view the roster and use these people on your project
             teams. Adding or removing accounts is handled by a workspace admin.
           </p>
@@ -138,21 +133,21 @@ export default function SettingsMembersPage() {
           adding ? (
           <form
             onSubmit={handleAddMember}
-            className="mb-6 rounded-lg border-gray-200 bg-gray-50 p-4"
+            className="mb-6 rounded-lg border-line bg-surface-muted p-4"
           >
-            <p className="mb-3 text-xs text-gray-600">
+            <p className="mb-3 text-xs text-ink-muted">
               Creates a new account. The person receives an email with their
               login details and sets their own password on first sign-in.
             </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <input
-                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={newMember.first_name}
                 onChange={(e) => setNewMember({ ...newMember, first_name: e.target.value })}
                 placeholder="First name"
               />
               <input
-                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={newMember.last_name}
                 onChange={(e) => setNewMember({ ...newMember, last_name: e.target.value })}
                 placeholder="Last name"
@@ -162,13 +157,13 @@ export default function SettingsMembersPage() {
                 value={newMember.email}
                 onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
                 placeholder="Email address"
-                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
               <select
                 value={newMember.role}
                 onChange={(e) => setNewMember({ ...newMember, role: e.target.value })}
-                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -188,7 +183,7 @@ export default function SettingsMembersPage() {
               <button
                 type="button"
                 onClick={() => setAdding(false)}
-                className="px-4 py-2 rounded text-gray-600 hover:bg-gray-100"
+                className="px-4 py-2 rounded text-ink-muted hover:bg-surface-inset"
               >
                 Cancel
               </button>
@@ -197,7 +192,7 @@ export default function SettingsMembersPage() {
           ) : (
             <button
               onClick={() => setAdding(true)}
-              className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700 transition"
+              className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
             >
               <Plus className="w-4 h-4" /> Create member account
             </button>
@@ -207,14 +202,14 @@ export default function SettingsMembersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+              <tr className="border-b border-line">
+                <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                   Member
                 </th>
-                <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                   Role
                 </th>
-                <th className="pb-3 text-xs font-semibold text-gray-500 uppercase text-right">
+                <th className="pb-3 text-xs font-semibold text-ink-muted uppercase text-right">
                   Actions
                 </th>
               </tr>
@@ -222,13 +217,13 @@ export default function SettingsMembersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="3" className="py-8 text-center text-gray-500">
+                  <td colSpan={3} className="py-8 text-center text-ink-muted">
                     Loading members...
                   </td>
                 </tr>
               ) : members.length === 0 ? (
                 <tr>
-                  <td colSpan="3" className="py-8 text-center text-gray-500">
+                  <td colSpan={3} className="py-8 text-center text-ink-muted">
                     No members found.
                   </td>
                 </tr>
@@ -236,12 +231,12 @@ export default function SettingsMembersPage() {
                 members.map((m) => (
                   <tr
                     key={m.id}
-                    className="border-b border-gray-50 hover:bg-gray-50 transition"
+                    className="border-b border-line hover:bg-surface-muted transition"
                   >
-                    <td className="py-3 text-sm text-gray-900">
+                    <td className="py-3 text-sm text-ink">
                       {m.user_email || m.email || "Unknown"}
                       {m.must_change_password && (
-                        <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800">
+                        <span className="ml-2 rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-800">
                           Pending first sign-in
                         </span>
                       )}
@@ -251,7 +246,7 @@ export default function SettingsMembersPage() {
                         <select
                           value={m.role}
                           onChange={(e) => handleRoleChange(m.id, e.target.value)}
-                          className="border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           {ROLES.map((r) => (
                             <option key={r.value} value={r.value}>
@@ -260,7 +255,7 @@ export default function SettingsMembersPage() {
                           ))}
                         </select>
                       ) : (
-                        <span className="text-xs capitalise text-gray-700">
+                        <span className="text-xs capitalise text-ink">
                           {ROLES.find((r) => r.value === m.role)?.label ?? m.role}
                         </span>
                       )}
@@ -269,7 +264,7 @@ export default function SettingsMembersPage() {
                       {canOnboard && (
                         <button
                           onClick={() => handleRemoveMember(m.id)}
-                          className="text-xs text-red-500 hover:text-red-700 transition"
+                          className="text-xs text-red-500 hover:text-red-600 dark:text-red-400 transition"
                         >
                           <Trash2 className="w-4 h-4" /> Remove
                         </button>

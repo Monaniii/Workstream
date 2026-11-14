@@ -10,7 +10,7 @@ env:
   DJANGO_SETTINGS_MODULE: config.settings
   DATABASE_URL: postgres://postgres:postgres@localhost:5432/multiii_test
   REDIS_URL: redis://localhost:6379/0
-  SECRET_KEY: ci-secret-key-do-not-use-in-production
+  SECRET_KEY: 
   DEBUG: "True"
   ALLOWED_HOSTS: localhost,127.0.0.1,testserver
   FRONTEND_URL: http://localhost:5173

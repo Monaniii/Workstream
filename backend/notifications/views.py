@@ -33,7 +33,10 @@ def _project_ids_for_user(user, workspace):
 
     project_ids = set(
         Project.objects.filter(workspace=workspace).filter(
-            models.Q(created_by=user) | models.Q(owner=user) | models.Q(manager=user)
+            models.Q(created_by=user)
+            | models.Q(owner=user)
+            | models.Q(manager=user)
+            | models.Q(team_members=user)
         ).values_list("id", flat=True)
     )
     project_ids.update(

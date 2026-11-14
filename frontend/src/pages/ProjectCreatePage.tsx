@@ -43,12 +43,12 @@ export default function ProjectCreatePage() {
 
   if (!activeWorkspace) {
     return (
-      <div className="rounded-xl border bg-white p-8 text-center">
-        <h1 className="text-xl font-bold text-slate-900">Select a workspace</h1>
-        <p className="mt-2 text-sm text-slate-500">
+      <div className="rounded-xl border bg-surface p-8 text-center">
+        <h1 className="text-xl font-bold text-ink">Select a workspace</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           Choose a workspace before creating a project.
         </p>
-        <Link to="/app/projects" className="mt-4 inline-block text-blue-600 hover:underline">
+        <Link to="/app/projects" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
           Back to projects
         </Link>
       </div>
@@ -57,12 +57,12 @@ export default function ProjectCreatePage() {
 
   if (!canManageProjects) {
     return (
-      <div className="rounded-xl border bg-white p-8 text-center">
-        <h1 className="text-xl font-bold text-slate-900">Project creation is restricted</h1>
-        <p className="mt-2 text-sm text-slate-500">
+      <div className="rounded-xl border bg-surface p-8 text-center">
+        <h1 className="text-xl font-bold text-ink">Project creation is restricted</h1>
+        <p className="mt-2 text-sm text-ink-muted">
           Only workspace managers and admins can create projects.
         </p>
-        <Link to="/app/projects" className="mt-4 inline-block text-blue-600 hover:underline">
+        <Link to="/app/projects" className="mt-4 inline-block text-blue-600 dark:text-blue-400 hover:underline">
           Back to projects
         </Link>
       </div>
@@ -115,71 +115,71 @@ export default function ProjectCreatePage() {
     <div className="mx-auto w-full max-w-4xl">
       <Link
         to="/app/projects"
-        className="mb-5 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-blue-700"
+        className="mb-5 inline-flex items-center gap-2 text-sm text-ink-muted hover:text-blue-600 dark:hover:text-blue-400"
       >
         <ArrowLeft className="h-4 w-4" /> Back to projects
       </Link>
 
       <div className="mb-6">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400">
           <Briefcase className="h-6 w-6" />
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">Create a project</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-ink">Create a project</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           Set up the project, choose its manager and add its initial team.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-line bg-surface p-6 shadow-sm">
         <section className="grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Project name
             <input
               required
               maxLength={200}
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2"
               placeholder="Website redesign"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Project key
             <input
               required
               maxLength={10}
               value={form.key}
               onChange={(event) => setForm({ ...form, key: event.target.value.toUpperCase() })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 uppercase"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2 uppercase"
               placeholder="WEB"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700 md:col-span-2">
+          <label className="text-sm font-medium text-ink md:col-span-2">
             Description
             <textarea
               value={form.description}
               onChange={(event) => setForm({ ...form, description: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2"
               rows={3}
               placeholder="What is this project working toward?"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700 md:col-span-2">
+          <label className="text-sm font-medium text-ink md:col-span-2">
             Objectives
             <textarea
               value={form.objectives}
               onChange={(event) => setForm({ ...form, objectives: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2"
               rows={2}
               placeholder="What outcomes should this project deliver?"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Project owner
             <select
               value={form.owner}
               onChange={(event) => setForm({ ...form, owner: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line bg-surface px-3 py-2"
             >
               <option value="">Me ({user?.email || "current user"})</option>
               {members.map((member) => (
@@ -189,12 +189,12 @@ export default function ProjectCreatePage() {
               ))}
             </select>
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Project manager
             <select
               value={form.manager}
               onChange={(event) => setForm({ ...form, manager: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line bg-surface px-3 py-2"
             >
               <option value="">Assign later</option>
               {workspaceManagers.map((member) => (
@@ -204,24 +204,24 @@ export default function ProjectCreatePage() {
               ))}
             </select>
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Status
             <select
               value={form.status}
               onChange={(event) => setForm({ ...form, status: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line bg-surface px-3 py-2"
             >
               <option value="planned">Planned</option>
               <option value="active">Active</option>
               <option value="on_hold">On hold</option>
             </select>
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Priority
             <select
               value={form.priority}
               onChange={(event) => setForm({ ...form, priority: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line bg-surface px-3 py-2"
             >
               <option value="low">Low</option>
               <option value="normal">Normal</option>
@@ -229,89 +229,89 @@ export default function ProjectCreatePage() {
               <option value="critical">Critical</option>
             </select>
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Start date
             <input
               type="date"
               value={form.start_date}
               onChange={(event) => setForm({ ...form, start_date: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Target date
             <input
               type="date"
               min={form.start_date || undefined}
               value={form.target_date}
               onChange={(event) => setForm({ ...form, target_date: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2"
             />
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Visibility
             <select
               value={form.visibility}
               onChange={(event) => setForm({ ...form, visibility: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line bg-surface px-3 py-2"
             >
               <option value="internal">Internal</option>
               <option value="public">Public</option>
               <option value="private">Private</option>
             </select>
           </label>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="text-sm font-medium text-ink">
             Tags
             <input
               value={form.tags}
               onChange={(event) => setForm({ ...form, tags: event.target.value })}
-              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2"
+              className="mt-1 block w-full rounded-lg border border-line px-3 py-2"
               placeholder="engineering, launch"
             />
           </label>
         </section>
 
-        <section className="border-t border-slate-100 pt-5">
+        <section className="border-t border-line pt-5">
           <div className="mb-3">
-            <h2 className="font-semibold text-slate-900">Initial project team</h2>
-            <p className="text-sm text-slate-500">
+            <h2 className="font-semibold text-ink">Initial project team</h2>
+            <p className="text-sm text-ink-muted">
               The creator, selected owner, and selected manager are automatically included.
             </p>
           </div>
           {membersLoading ? (
-            <p className="text-sm text-slate-500">Loading workspace members...</p>
+            <p className="text-sm text-ink-muted">Loading workspace members...</p>
           ) : members.length ? (
             <div className="grid gap-2 sm:grid-cols-2">
               {members.map((member) => (
-                <label key={member.user} className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm">
+                <label key={member.user} className="flex items-center gap-3 rounded-lg border border-line p-3 text-sm">
                   <input
                     type="checkbox"
                     checked={teamMemberIds.includes(member.user)}
                     onChange={() => toggleTeamMember(member.user)}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                    className="h-4 w-4 rounded border-line text-blue-600 dark:text-blue-400"
                   />
                   <span className="min-w-0">
-                    <span className="block truncate font-medium text-slate-800">{member.user_email}</span>
-                    <span className="text-xs text-slate-500">{member.role}</span>
+                    <span className="block truncate font-medium text-ink">{member.user_email}</span>
+                    <span className="text-xs text-ink-muted">{member.role}</span>
                   </span>
                 </label>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-amber-600 dark:text-amber-400">
               No workspace members were found. The project creator will be added automatically.
             </p>
           )}
         </section>
 
         {error && (
-          <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+          <div role="alert" className="rounded-lg bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400">
             {error}
           </div>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
-          <Link to="/app/projects" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700">
+        <div className="flex justify-end gap-3 border-t border-line pt-5">
+          <Link to="/app/projects" className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink">
             Cancel
           </Link>
           <button

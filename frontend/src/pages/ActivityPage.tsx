@@ -46,14 +46,14 @@ export default function ActivityPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold">Activity &amp; Audit</h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-ink-muted text-sm">
             Workspace activity history, task changes, and administrative actions
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={loadActivity}
-            className="p-2 text-gray-500 hover:text-indigo-600 transition"
+            className="p-2 text-ink-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition"
             disabled={loading}
           >
             <RefreshCw className="w-4 h-4" />
@@ -70,7 +70,7 @@ export default function ActivityPage() {
             className={`px-3 py-1.5 rounded text-sm border transition ${
               period === p.value
                 ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"
+                : "bg-surface text-ink-muted border-line hover:border-indigo-300"
             }`}
           >
             {p.label}
@@ -87,22 +87,22 @@ export default function ActivityPage() {
       {!loading && data && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface rounded-xl border border-line p-6">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Total Events
               </p>
               <h3 className="text-2xl font-bold">{data.total_events || 0}</h3>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface rounded-xl border border-line p-6">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Action Types
               </p>
               <h3 className="text-2xl font-bold">
                 {(data.by_action || []).length}
               </h3>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
+            <div className="bg-surface rounded-xl border border-line p-6">
+              <p className="text-xs font-semibold text-ink-subtle uppercase mb-1">
                 Target Types
               </p>
               <h3 className="text-2xl font-bold">
@@ -112,16 +112,16 @@ export default function ActivityPage() {
           </div>
 
           {/* By Action */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-surface rounded-xl border border-line p-6">
             <h3 className="text-lg font-semibold mb-6">Events by Action Type</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                  <tr className="border-b border-line">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                       Action
                     </th>
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase text-right">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase text-right">
                       Count
                     </th>
                   </tr>
@@ -130,10 +130,10 @@ export default function ActivityPage() {
                   {(data.by_action || []).map((a: any) => (
                     <tr
                       key={a.action}
-                      className="border-b border-gray-50 hover:bg-gray-50 transition"
+                      className="border-b border-line hover:bg-surface-muted transition"
                     >
-                      <td className="py-3 text-sm text-gray-900">{a.action}</td>
-                      <td className="py-3 text-sm text-right font-medium text-indigo-600">
+                      <td className="py-3 text-sm text-ink">{a.action}</td>
+                      <td className="py-3 text-sm text-right font-medium text-indigo-600 dark:text-indigo-400">
                         {a.count}
                       </td>
                     </tr>
@@ -144,27 +144,27 @@ export default function ActivityPage() {
           </div>
 
           {/* Recent Events */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-surface rounded-xl border border-line p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold">Recent Events</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                  <tr className="border-b border-line">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                       Time
                     </th>
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                       Actor
                     </th>
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                       Action
                     </th>
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase">
                       Target
                     </th>
-                    <th className="pb-3 text-xs font-semibold text-gray-500 uppercase text-right">
+                    <th className="pb-3 text-xs font-semibold text-ink-muted uppercase text-right">
                       Target ID
                     </th>
                   </tr>
@@ -173,21 +173,21 @@ export default function ActivityPage() {
                   {(data.recent_events || []).map((e: any) => (
                     <tr
                       key={e.id}
-                      className="border-b border-gray-50 hover:bg-gray-50 transition"
+                      className="border-b border-line hover:bg-surface-muted transition"
                     >
-                      <td className="py-3 text-sm text-gray-500">
+                      <td className="py-3 text-sm text-ink-muted">
                         {new Date(e.created_at).toLocaleString()}
                       </td>
-                      <td className="py-3 text-sm text-gray-900">
+                      <td className="py-3 text-sm text-ink">
                         {e.actor_email || "System"}
                       </td>
-                      <td className="py-3 text-sm text-indigo-600 font-medium">
+                      <td className="py-3 text-sm text-indigo-600 dark:text-indigo-400 font-medium">
                         {e.action}
                       </td>
-                      <td className="py-3 text-sm text-gray-600">
+                      <td className="py-3 text-sm text-ink-muted">
                         {e.target_type}
                       </td>
-                      <td className="py-3 text-sm text-right text-gray-500">
+                      <td className="py-3 text-sm text-right text-ink-muted">
                         {e.target_id}
                       </td>
                     </tr>
